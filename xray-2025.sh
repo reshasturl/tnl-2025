@@ -118,6 +118,42 @@ REALITY_PUBLIC=$(echo "${REALITY_KEYS}" | grep "Public key:" | awk '{print $3}')
 # Generate UUID for default user
 uuid=$(cat /proc/sys/kernel/random/uuid)
 
+# Generate Custom Paths (Completely Flexible - Support Any Path)
+log_and_show "🎯 Generating custom paths (completely flexible)..."
+
+# Function to generate random path
+generate_random_path() {
+    local prefix=$1
+    echo "/${prefix}$(openssl rand -hex 6)"
+}
+
+# Custom paths with environment variable support (completely flexible)
+VMESS_PATH="${CUSTOM_VMESS_PATH:-$(generate_random_path "vm")}"
+VLESS_PATH="${CUSTOM_VLESS_PATH:-$(generate_random_path "vl")}"
+TROJAN_PATH="${CUSTOM_TROJAN_PATH:-$(generate_random_path "tr")}"
+TROJANGO_PATH="${CUSTOM_TROJANGO_PATH:-$(generate_random_path "trgo")}"
+
+# XHTTP paths (can be same as WS or different)
+VMESS_XHTTP_PATH="${CUSTOM_VMESS_XHTTP_PATH:-$VMESS_PATH}"
+VLESS_XHTTP_PATH="${CUSTOM_VLESS_XHTTP_PATH:-$VLESS_PATH}"
+
+# gRPC service names (not paths)
+VMESS_GRPC_SERVICE="${CUSTOM_VMESS_GRPC:-vmess-$(openssl rand -hex 4)}"
+VLESS_GRPC_SERVICE="${CUSTOM_VLESS_GRPC:-vless-$(openssl rand -hex 4)}"
+TROJAN_GRPC_SERVICE="${CUSTOM_TROJAN_GRPC:-trojan-$(openssl rand -hex 4)}"
+
+# Log generated paths
+log_and_show "✅ Generated custom paths:"
+log_and_show "   📝 VMess WS: ${VMESS_PATH}"
+log_and_show "   ⚡ VMess XHTTP: ${VMESS_XHTTP_PATH}"
+log_and_show "   📡 VMess gRPC: ${VMESS_GRPC_SERVICE}"
+log_and_show "   📝 VLess WS: ${VLESS_PATH}"
+log_and_show "   ⚡ VLess XHTTP: ${VLESS_XHTTP_PATH}"
+log_and_show "   📡 VLess gRPC: ${VLESS_GRPC_SERVICE}"
+log_and_show "   📝 Trojan WS: ${TROJAN_PATH}"
+log_and_show "   📡 Trojan gRPC: ${TROJAN_GRPC_SERVICE}"
+log_and_show "   🚀 Trojan-Go: ${TROJANGO_PATH}"
+
 # Save configuration details for future reference
 cat > /etc/xray/.config-details << EOF
 REALITY_PRIVATE=${REALITY_PRIVATE}
@@ -125,6 +161,32 @@ REALITY_PUBLIC=${REALITY_PUBLIC}
 DOMAIN=${DOMAIN}
 UUID=${uuid}
 XRAY_VERSION=${XRAY_VERSION}
+# Custom Paths (Customizable)
+VMESS_PATH=${VMESS_PATH}
+VMESS_XHTTP_PATH=${VMESS_XHTTP_PATH}
+VMESS_GRPC_SERVICE=${VMESS_GRPC_SERVICE}
+VLESS_PATH=${VLESS_PATH}
+VLESS_XHTTP_PATH=${VLESS_XHTTP_PATH}
+VLESS_GRPC_SERVICE=${VLESS_GRPC_SERVICE}
+TROJAN_PATH=${TROJAN_PATH}
+TROJAN_GRPC_SERVICE=${TROJAN_GRPC_SERVICE}
+TROJANGO_PATH=${TROJANGO_PATH}
+EOF
+
+# Save paths to separate file for management scripts
+cat > /etc/xray/.paths << EOF
+# Custom Paths Configuration
+# These paths can be completely customized via environment variables
+# Example: CUSTOM_VMESS_PATH="/facebook" CUSTOM_VLESS_PATH="/google" ./xray-2025.sh
+VMESS_PATH=${VMESS_PATH}
+VMESS_XHTTP_PATH=${VMESS_XHTTP_PATH}
+VMESS_GRPC_SERVICE=${VMESS_GRPC_SERVICE}
+VLESS_PATH=${VLESS_PATH}
+VLESS_XHTTP_PATH=${VLESS_XHTTP_PATH}
+VLESS_GRPC_SERVICE=${VLESS_GRPC_SERVICE}
+TROJAN_PATH=${TROJAN_PATH}
+TROJAN_GRPC_SERVICE=${TROJAN_GRPC_SERVICE}
+TROJANGO_PATH=${TROJANGO_PATH}
 EOF
 
 # Create SNI wildcard list for management scripts
@@ -185,7 +247,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "ws",
         "wsSettings": {
-          "path": "/vless"
+          "path": "${VLESS_PATH}"
         }
       }
     },
@@ -205,7 +267,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "xhttp",
         "xhttpSettings": {
-          "path": "/vless-xhttp"
+          "path": "${VLESS_XHTTP_PATH}"
         }
       }
     },
@@ -261,7 +323,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "ws",
         "wsSettings": {
-          "path": "/vmess"
+          "path": "${VMESS_PATH}"
         }
       }
     },
@@ -281,67 +343,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "xhttp",
         "xhttpSettings": {
-          "path": "/vmess-xhttp"
-        }
-      }
-    },
-    {
-      "listen": "127.0.0.1",
-      "port": "23457",
-      "protocol": "vmess",
-      "settings": {
-        "clients": [
-          {
-            "id": "${uuid}",
-            "alterId": 0
-#vmessworry
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "ws",
-        "wsSettings": {
-          "path": "/worryfree"
-        }
-      }
-    },
-    {
-      "listen": "127.0.0.1",
-      "port": "23458",
-      "protocol": "vmess",
-      "settings": {
-        "clients": [
-          {
-            "id": "${uuid}",
-            "alterId": 0
-#vmesskuota
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "ws",
-        "wsSettings": {
-          "path": "/kuota-habis"
-        }
-      }
-    },
-    {
-      "listen": "127.0.0.1",
-      "port": "23459",
-      "protocol": "vmess",
-      "settings": {
-        "clients": [
-          {
-            "id": "${uuid}",
-            "alterId": 0
-#vmesschat
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "ws",
-        "wsSettings": {
-          "path": "/chat"
+          "path": "${VMESS_XHTTP_PATH}"
         }
       }
     },
@@ -361,7 +363,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "ws",
         "wsSettings": {
-          "path": "/trojan-ws"
+          "path": "${TROJAN_PATH}"
         }
       }
     },
@@ -381,7 +383,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "grpc",
         "grpcSettings": {
-          "serviceName": "vless-grpc"
+          "serviceName": "${VLESS_GRPC_SERVICE}"
         }
       }
     },
@@ -401,7 +403,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "grpc",
         "grpcSettings": {
-          "serviceName": "vmess-grpc"
+          "serviceName": "${VMESS_GRPC_SERVICE}"
         }
       }
     },
@@ -421,7 +423,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "grpc",
         "grpcSettings": {
-          "serviceName": "trojan-grpc"
+          "serviceName": "${TROJAN_GRPC_SERVICE}"
         }
       }
     }
@@ -618,7 +620,7 @@ server {
     
     root /home/vps/public_html;
     
-    location = /vless {
+    location = ${VLESS_PATH} {
         proxy_redirect off;
         proxy_pass http://127.0.0.1:14016;
         proxy_http_version 1.1;
@@ -629,7 +631,7 @@ server {
         proxy_set_header Host \$http_host;
     }
     
-    location = /vless-xhttp {
+    location = ${VLESS_XHTTP_PATH} {
         proxy_redirect off;
         proxy_pass http://127.0.0.1:14017;
         proxy_http_version 1.1;
@@ -640,7 +642,7 @@ server {
         proxy_set_header Host \$http_host;
     }
     
-    location = /vmess {
+    location = ${VMESS_PATH} {
         proxy_redirect off;
         proxy_pass http://127.0.0.1:23456;
         proxy_http_version 1.1;
@@ -651,7 +653,7 @@ server {
         proxy_set_header Host \$http_host;
     }
     
-    location = /vmess-xhttp {
+    location = ${VMESS_XHTTP_PATH} {
         proxy_redirect off;
         proxy_pass http://127.0.0.1:23460;
         proxy_http_version 1.1;
@@ -662,40 +664,7 @@ server {
         proxy_set_header Host \$http_host;
     }
     
-    location = /worryfree {
-        proxy_redirect off;
-        proxy_pass http://127.0.0.1:23457;
-        proxy_http_version 1.1;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$http_host;
-    }
-    
-    location = /kuota-habis {
-        proxy_redirect off;
-        proxy_pass http://127.0.0.1:23458;
-        proxy_http_version 1.1;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$http_host;
-    }
-    
-    location = /chat {
-        proxy_redirect off;
-        proxy_pass http://127.0.0.1:23459;
-        proxy_http_version 1.1;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$http_host;
-    }
-    
-    location = /trojan-ws {
+    location = ${TROJAN_PATH} {
         proxy_redirect off;
         proxy_pass http://127.0.0.1:25432;
         proxy_http_version 1.1;
@@ -706,7 +675,7 @@ server {
         proxy_set_header Host \$http_host;
     }
     
-    location ^~ /vless-grpc {
+    location ^~ ${VLESS_GRPC_SERVICE} {
         proxy_redirect off;
         grpc_set_header X-Real-IP \$remote_addr;
         grpc_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -714,7 +683,7 @@ server {
         grpc_pass grpc://127.0.0.1:24456;
     }
     
-    location ^~ /vmess-grpc {
+    location ^~ ${VMESS_GRPC_SERVICE} {
         proxy_redirect off;
         grpc_set_header X-Real-IP \$remote_addr;
         grpc_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -722,7 +691,7 @@ server {
         grpc_pass grpc://127.0.0.1:31234;
     }
     
-    location ^~ /trojan-grpc {
+    location ^~ ${TROJAN_GRPC_SERVICE} {
         proxy_redirect off;
         grpc_set_header X-Real-IP \$remote_addr;
         grpc_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -730,7 +699,7 @@ server {
         grpc_pass grpc://127.0.0.1:33456;
     }
     
-    location ^~ /trojango {
+    location ^~ ${TROJANGO_PATH} {
         proxy_redirect off;
         proxy_pass http://127.0.0.1:2087;
         proxy_http_version 1.1;
@@ -812,7 +781,7 @@ cat > /etc/trojan-go/config.json << EOF
   },
   "websocket": {
     "enabled": true,
-    "path": "/trojango",
+    "path": "${TROJANGO_PATH}",
     "host": "${DOMAIN}"
   },
   "api": {
@@ -982,20 +951,27 @@ yellow "✅ Trojan-Go v${latest_version} installed"
 # Log Xray info (updated for correct version and protocols)
 echo "XRAY v${XRAY_VERSION}: VMess/VLess/Trojan with XHTTP and REALITY (Auto-detected)" >> /root/log-install.txt
 echo "Trojan-Go v${latest_version} (Auto-detected)" >> /root/log-install.txt
-echo "VMess WS: 80, 443" >> /root/log-install.txt
-echo "VMess GRPC: 443" >> /root/log-install.txt
-echo "VMess XHTTP: 80, 443" >> /root/log-install.txt
-echo "VLess WS: 80, 443" >> /root/log-install.txt
-echo "VLess GRPC: 443" >> /root/log-install.txt
-echo "VLess XHTTP: 80, 443" >> /root/log-install.txt
-echo "VLess REALITY: 443" >> /root/log-install.txt
-echo "Trojan WS: 80, 443" >> /root/log-install.txt
-echo "Trojan GRPC: 443" >> /root/log-install.txt
-echo "Trojan-Go: 2087" >> /root/log-install.txt
-echo "Shadowsocks WS: 80, 443" >> /root/log-install.txt
-echo "Shadowsocks GRPC: 443" >> /root/log-install.txt
+echo "VMess WS: 80, 443 (Path: ${VMESS_PATH})" >> /root/log-install.txt
+echo "VMess GRPC: 443 (Service: ${VMESS_GRPC_SERVICE})" >> /root/log-install.txt
+echo "VMess XHTTP: 80, 443 (Path: ${VMESS_XHTTP_PATH})" >> /root/log-install.txt
+echo "VLess WS: 80, 443 (Path: ${VLESS_PATH})" >> /root/log-install.txt
+echo "VLess GRPC: 443 (Service: ${VLESS_GRPC_SERVICE})" >> /root/log-install.txt
+echo "VLess XHTTP: 80, 443 (Path: ${VLESS_XHTTP_PATH})" >> /root/log-install.txt
+echo "VLess REALITY: 8443 (No path needed)" >> /root/log-install.txt
+echo "Trojan WS: 80, 443 (Path: ${TROJAN_PATH})" >> /root/log-install.txt
+echo "Trojan GRPC: 443 (Service: ${TROJAN_GRPC_SERVICE})" >> /root/log-install.txt
+echo "Trojan-Go: 2087 (Path: ${TROJANGO_PATH})" >> /root/log-install.txt
 
 # Enhanced Scripts Information
+echo "" >> /root/log-install.txt
+echo "Custom Path Features (Completely Flexible):" >> /root/log-install.txt
+echo "- Custom paths via environment variables" >> /root/log-install.txt
+echo "- Example: CUSTOM_VMESS_PATH='/facebook' CUSTOM_VLESS_PATH='/google' ./xray-2025.sh" >> /root/log-install.txt
+echo "- Current paths saved in: /etc/xray/.paths" >> /root/log-install.txt
+echo "- VMess WS+XHTTP: ${VMESS_PATH} / ${VMESS_XHTTP_PATH}" >> /root/log-install.txt
+echo "- VLess WS+XHTTP: ${VLESS_PATH} / ${VLESS_XHTTP_PATH}" >> /root/log-install.txt
+echo "- Trojan WS: ${TROJAN_PATH}" >> /root/log-install.txt
+echo "- Trojan-Go: ${TROJANGO_PATH}" >> /root/log-install.txt
 echo "" >> /root/log-install.txt
 echo "Enhanced Management Scripts:" >> /root/log-install.txt
 echo "- add-vless-enhanced: Advanced VLess creation" >> /root/log-install.txt
@@ -1013,12 +989,16 @@ echo "- SAN Certificate: Multi-domain SSL support for social media" >> /root/log
 log_and_show "✅ Xray v${XRAY_VERSION} installation with XHTTP and REALITY completed"
 log_and_show "🌐 SNI Wildcard Support: ENABLED (server_name _)"
 log_and_show "🔒 REALITY Multiple serverNames: ENABLED"
+log_and_show "🎯 Custom Paths: ENABLED (completely flexible like server_name _)"
 log_and_show "🚀 Enhanced management scripts tersedia dengan fitur modern:"
 log_and_show "   📝 add-vless-enhanced: Pembuatan VLess tingkat lanjut"
 log_and_show "   🔒 add-vless-reality: VLess dengan protokol REALITY"
 log_and_show "   ⚡ add-vless-xhttp: VLess dengan transport XHTTP"
 log_and_show "   📝 add-ws-enhanced: Pembuatan VMess tingkat lanjut" 
 log_and_show "   ⚡ add-vmess-xhttp: VMess dengan transport XHTTP"
-log_and_show "   🌐 Custom SNI: Mendukung custom domain di client (instagram.com, facebook.com, zoom.us, google.com, dll)"
+log_and_show "   🌐 Custom SNI: Mendukung custom domain di client"
+log_and_show "🎯 Custom Path Examples:"
+log_and_show "   CUSTOM_VMESS_PATH='/facebook' CUSTOM_VLESS_PATH='/google' ./xray-2025.sh"
+log_and_show "   CUSTOM_TROJAN_PATH='/instagram' CUSTOM_TROJANGO_PATH='/youtube' ./xray-2025.sh"
 log_and_show "✅ Semua service berjalan dengan versi terbaru (auto-detect)"
 log_section "XRAY-2025.SH COMPLETED"

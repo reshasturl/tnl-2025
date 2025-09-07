@@ -26,8 +26,8 @@ fi
 
 # Download WebSocket scripts
 log_and_show "📥 Downloading WebSocket scripts..."
-log_command "wget -O /usr/local/bin/ws-dropbear https://raw.githubusercontent.com/H-Pri3l/v4/main/sshws/dropbear-ws.py"
-log_command "wget -O /usr/local/bin/ws-stunnel https://raw.githubusercontent.com/H-Pri3l/v4/main/sshws/ws-stunnel"
+log_command "wget -O /usr/local/bin/ws-dropbear https://raw.githubusercontent.com/reshasturl/tnl-2025/main/sshws/dropbear-ws.py"
+log_command "wget -O /usr/local/bin/ws-stunnel https://raw.githubusercontent.com/reshasturl/tnl-2025/main/sshws/ws-stunnel"
 
 # Set permissions
 log_command "chmod +x /usr/local/bin/ws-dropbear"
@@ -38,7 +38,7 @@ log_and_show "⚙️  Creating Dropbear WebSocket service..."
 cat > /etc/systemd/system/ws-dropbear.service << 'EOF'
 [Unit]
 Description=Dropbear WebSocket Tunnel 2025
-Documentation=https://github.com/H-Pri3l/v4
+Documentation=https://github.com/reshasturl/tnl-2025
 After=network.target nss-lookup.target
 
 [Service]
@@ -60,7 +60,7 @@ log_and_show "⚙️  Creating Stunnel WebSocket service..."
 cat > /etc/systemd/system/ws-stunnel.service << 'EOF'
 [Unit]
 Description=SSH Over Websocket SSL 2025
-Documentation=https://github.com/H-Pri3l/v4
+Documentation=https://github.com/reshasturl/tnl-2025
 After=network.target nss-lookup.target
 
 [Service]

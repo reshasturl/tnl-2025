@@ -866,11 +866,11 @@ fi
 
 # Install menu system
 log_and_show "📋 Installing menu system..."
-log_command "wget -O /usr/local/bin/menu https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu.sh"
-log_command "wget -O /usr/local/bin/menu-ssh https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-ssh.sh"
-log_command "wget -O /usr/local/bin/menu-vmess https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-vmess.sh"
-log_command "wget -O /usr/local/bin/menu-vless https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-vless.sh"
-log_command "wget -O /usr/local/bin/menu-trojan https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-trojan.sh"
+log_command "wget -O /usr/local/bin/menu https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu.sh"
+log_command "wget -O /usr/local/bin/menu-ssh https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-ssh.sh"
+log_command "wget -O /usr/local/bin/menu-vmess https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-vmess.sh"
+log_command "wget -O /usr/local/bin/menu-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-vless.sh"
+log_command "wget -O /usr/local/bin/menu-trojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-trojan.sh"
 
 # SSH management scripts are installed by ssh-2025.sh installer
 
@@ -878,43 +878,43 @@ log_command "wget -O /usr/local/bin/menu-trojan https://raw.githubusercontent.co
 log_and_show "📱 Installing comprehensive Xray management tools..."
 
 # VMess management
-log_command "wget -O /usr/local/bin/add-ws https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/add-ws.sh"
-log_command "wget -O /usr/local/bin/add-ws-enhanced https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/add-ws-enhanced.sh"
-log_command "wget -O /usr/local/bin/trialvmess https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/trialvmess.sh"
-log_command "wget -O /usr/local/bin/renew-ws https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/renew-ws.sh"
-log_command "wget -O /usr/local/bin/del-ws https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/del-ws.sh"
-log_command "wget -O /usr/local/bin/cek-ws https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/cek-ws.sh"
+log_command "wget -O /usr/local/bin/add-ws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-ws.sh"
+log_command "wget -O /usr/local/bin/add-ws-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-ws-enhanced.sh"
+log_command "wget -O /usr/local/bin/trialvmess https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialvmess.sh"
+log_command "wget -O /usr/local/bin/renew-ws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renew-ws.sh"
+log_command "wget -O /usr/local/bin/del-ws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-ws.sh"
+log_command "wget -O /usr/local/bin/cek-ws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-ws.sh"
 
 # VLess management  
-log_command "wget -O /usr/local/bin/add-vless https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/add-vless.sh"
-log_command "wget -O /usr/local/bin/add-vless-enhanced https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/add-vless-enhanced.sh"
-log_command "wget -O /usr/local/bin/add-vless-reality https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/add-vless-reality.sh"
-log_command "wget -O /usr/local/bin/add-vless-xhttp https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/add-vless-xhttp.sh"
-log_command "wget -O /usr/local/bin/trialvless https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/trialvless.sh"
-log_command "wget -O /usr/local/bin/renew-vless https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/renew-vless.sh"
-log_command "wget -O /usr/local/bin/del-vless https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/del-vless.sh"
-log_command "wget -O /usr/local/bin/cek-vless https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/cek-vless.sh"
+log_command "wget -O /usr/local/bin/add-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vless.sh"
+log_command "wget -O /usr/local/bin/add-vless-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vless-enhanced.sh"
+log_command "wget -O /usr/local/bin/add-vless-reality https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vless-reality.sh"
+log_command "wget -O /usr/local/bin/add-vless-xhttp https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vless-xhttp.sh"
+log_command "wget -O /usr/local/bin/trialvless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialvless.sh"
+log_command "wget -O /usr/local/bin/renew-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renew-vless.sh"
+log_command "wget -O /usr/local/bin/del-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-vless.sh"
+log_command "wget -O /usr/local/bin/cek-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-vless.sh"
 
 # Trojan management
-log_command "wget -O /usr/local/bin/add-tr https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/add-tr.sh"
-log_command "wget -O /usr/local/bin/trialtrojan https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/trialtrojan.sh"
-log_command "wget -O /usr/local/bin/renew-tr https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/renew-tr.sh"
-log_command "wget -O /usr/local/bin/del-tr https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/del-tr.sh"
-log_command "wget -O /usr/local/bin/cek-tr https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/cek-tr.sh"
+log_command "wget -O /usr/local/bin/add-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-tr.sh"
+log_command "wget -O /usr/local/bin/trialtrojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojan.sh"
+log_command "wget -O /usr/local/bin/renew-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renew-tr.sh"
+log_command "wget -O /usr/local/bin/del-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-tr.sh"
+log_command "wget -O /usr/local/bin/cek-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-tr.sh"
 
 # Trojan-Go management
-log_command "wget -O /usr/local/bin/addtrgo https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/addtrgo.sh"
-log_command "wget -O /usr/local/bin/trialtrojango https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/trialtrojango.sh"
-log_command "wget -O /usr/local/bin/renewtrgo https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/renewtrgo.sh"
-log_command "wget -O /usr/local/bin/deltrgo https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/deltrgo.sh"
-log_command "wget -O /usr/local/bin/cektrgo https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/cektrgo.sh"
+log_command "wget -O /usr/local/bin/addtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/addtrgo.sh"
+log_command "wget -O /usr/local/bin/trialtrojango https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojango.sh"
+log_command "wget -O /usr/local/bin/renewtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renewtrgo.sh"
+log_command "wget -O /usr/local/bin/deltrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/deltrgo.sh"
+log_command "wget -O /usr/local/bin/cektrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cektrgo.sh"
 
 # VMess XHTTP management
-log_command "wget -O /usr/local/bin/add-vmess-xhttp https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/add-vmess-xhttp.sh"
+log_command "wget -O /usr/local/bin/add-vmess-xhttp https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vmess-xhttp.sh"
 
 # Additional Xray utilities
-log_command "wget -O /usr/local/bin/cekxray https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/cekxray.sh"
-log_command "wget -O /usr/local/bin/certv2ray https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/certv2ray.sh"
+log_command "wget -O /usr/local/bin/cekxray https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cekxray.sh"
+log_command "wget -O /usr/local/bin/certv2ray https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/certv2ray.sh"
 
 # Set permissions for all scripts
 log_command "chmod +x /usr/local/bin/*"

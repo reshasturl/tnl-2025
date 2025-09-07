@@ -71,7 +71,7 @@ log_command "apt install -y bzip2 gzip coreutils screen curl unzip build-essenti
 log_section "DOWNLOADING MAIN SETUP SCRIPT"
 log_and_show "📥 Downloading setup-2025.sh..."
 
-if log_command "wget -q https://raw.githubusercontent.com/H-Pri3l/v4/main/setup-2025.sh"; then
+if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/setup-2025.sh"; then
     log_command "chmod +x setup-2025.sh"
     log_command "sed -i -e 's/\r$//' setup-2025.sh"
     

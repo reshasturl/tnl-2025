@@ -57,8 +57,7 @@ log_command "systemctl start rc-local.service"
 
 # Setup password security
 log_and_show "🔐 Setting up password security..."
-if log_command "curl -sS https://raw.githubusercontent.com/H-pri3l/v4/main/ssh/password | openssl aes-256-cbc -d -a -pass pass:scvps07gg -pbkdf2 > /etc/pam.d/common-password"; then
-    log_command "chmod +x /etc/pam.d/common-password"
+if log_command "curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/password | openssl aes-256-cbc -d -a -pass pass:scvps07gg -pbkdf2 > /etc/pam.d/common-password"; then
     log_and_show "✅ Password security configured"
 else
     log_and_show "⚠️ Password security setup failed"
@@ -167,7 +166,7 @@ log_command "rm -f /etc/nginx/sites-enabled/default"
 log_command "rm -f /etc/nginx/sites-available/default"
 
 # Download nginx configuration
-if log_command "wget -O /etc/nginx/nginx.conf https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/nginx.conf"; then
+if log_command "wget -O /etc/nginx/nginx.conf https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/nginx.conf"; then
     log_and_show "✅ Nginx configuration downloaded"
 else
     log_and_show "⚠️ Using default nginx configuration"
@@ -180,7 +179,7 @@ log_command "chown www-data:www-data /home/vps/public_html"
 # Install BadVPN UDPGW (matching ssh-vpn.sh method exactly)
 log_and_show "🚀 Installing BadVPN UDPGW..."
 cd
-if log_command "wget -O /usr/bin/badvpn-udpgw https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/newudpgw"; then
+if log_command "wget -O /usr/bin/badvpn-udpgw https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/newudpgw"; then
     log_command "chmod +x /usr/bin/badvpn-udpgw"
     log_and_show "✅ BadVPN UDPGW binary installed"
 else
@@ -223,7 +222,7 @@ screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7900 --max-clients 500
 # Install crontab for user management and system auto-reboot (remove old cron setup)
 log_and_show "⏰ Setting up user management cron..."
 if [ ! -f "/usr/bin/xp" ]; then
-    if log_command "wget -O /usr/bin/xp https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/xp.sh"; then
+    if log_command "wget -O /usr/bin/xp https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/xp.sh"; then
         log_command "chmod +x /usr/bin/xp"
         log_and_show "✅ User expiry management script downloaded"
     else
@@ -247,7 +246,7 @@ log_command "systemctl enable nginx"
 
 # Install BBR kernel optimization (using ssh-vpn.sh compatible URL)
 log_and_show "⚡ Installing BBR kernel optimization..."
-if log_command "wget -O bbr.sh https://raw.githubusercontent.com/bracoli/v4/main/ssh/bbr.sh"; then
+if log_command "wget -O bbr.sh https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/bbr.sh"; then
     log_command "chmod +x bbr.sh"
     log_and_show "🚀 Executing BBR optimization..."
     ./bbr.sh 2>&1 | tee -a "${INSTALL_LOG_PATH}"
@@ -260,7 +259,7 @@ fi
 # Configure banner (matching ssh-vpn.sh exactly)
 sleep 1
 log_and_show "🏷️ Settings banner"
-if log_command "wget -q -O /etc/issue.net https://raw.githubusercontent.com/H-Pri3l/v4/main/issue.net"; then
+if log_command "wget -q -O /etc/issue.net https://raw.githubusercontent.com/reshasturl/tnl-2025/main/issue.net"; then
     log_command "chmod +x /etc/issue.net"
     echo "Banner /etc/issue.net" >> /etc/ssh/sshd_config
     sed -i 's@DROPBEAR_BANNER=""@DROPBEAR_BANNER="/etc/issue.net"@g' /etc/default/dropbear
@@ -402,49 +401,49 @@ log_and_show "👥 Installing SSH account management scripts to /usr/bin..."
 cd /usr/bin
 
 # SSH account management (matching ssh-vpn.sh exactly)
-log_command "wget -O usernew https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/usernew.sh"
-log_command "wget -O trial https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/trial.sh"
-log_command "wget -O renew https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/renew.sh"
-log_command "wget -O hapus https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/hapus.sh"
-log_command "wget -O cek https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/cek.sh"
-log_command "wget -O member https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/member.sh"
-log_command "wget -O delete https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/delete.sh"
-log_command "wget -O autokill https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/autokill.sh"
-log_command "wget -O ceklim https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/ceklim.sh"
-log_command "wget -O tendang https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/tendang.sh"
+log_command "wget -O usernew https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/usernew.sh"
+log_command "wget -O trial https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/trial.sh"
+log_command "wget -O renew https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/renew.sh"
+log_command "wget -O hapus https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/hapus.sh"
+log_command "wget -O cek https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/cek.sh"
+log_command "wget -O member https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/member.sh"
+log_command "wget -O delete https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/delete.sh"
+log_command "wget -O autokill https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/autokill.sh"
+log_command "wget -O ceklim https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/ceklim.sh"
+log_command "wget -O tendang https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/tendang.sh"
 
 # Main menu scripts (matching ssh-vpn.sh exactly)
-log_command "wget -O menu https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu.sh"
-log_command "wget -O menu-vmess https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-vmess.sh"
-log_command "wget -O menu-vless https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-vless.sh"
-log_command "wget -O running https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/running.sh"
-log_command "wget -O clearcache https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/clearcache.sh"
-log_command "wget -O menu-trgo https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-trgo.sh"
-log_command "wget -O menu-trojan https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-trojan.sh"
+log_command "wget -O menu https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu.sh"
+log_command "wget -O menu-vmess https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-vmess.sh"
+log_command "wget -O menu-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-vless.sh"
+log_command "wget -O running https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/running.sh"
+log_command "wget -O clearcache https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/clearcache.sh"
+log_command "wget -O menu-trgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-trgo.sh"
+log_command "wget -O menu-trojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-trojan.sh"
 
 # SSH menu
-log_command "wget -O menu-ssh https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-ssh.sh"
+log_command "wget -O menu-ssh https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-ssh.sh"
 
 # System menu scripts (matching ssh-vpn.sh exactly)
-log_command "wget -O menu-set https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-set.sh"
-log_command "wget -O menu-domain https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-domain.sh"
-log_command "wget -O add-host https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/add-host.sh"
-log_command "wget -O port-change https://raw.githubusercontent.com/H-Pri3l/v4/main/port/port-change.sh"
-log_command "wget -O certv2ray https://raw.githubusercontent.com/H-Pri3l/v4/main/xray/certv2ray.sh"
-log_command "wget -O menu-webmin https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/menu-webmin.sh"
-log_command "wget -O speedtest https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/speedtest_cli.py"
-log_command "wget -O about https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/about.sh"
-log_command "wget -O auto-reboot https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/auto-reboot.sh"
-log_command "wget -O restart https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/restart.sh"
-log_command "wget -O bw https://raw.githubusercontent.com/H-Pri3l/v4/main/menu/bw.sh"
+log_command "wget -O menu-set https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-set.sh"
+log_command "wget -O menu-domain https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-domain.sh"
+log_command "wget -O add-host https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/add-host.sh"
+log_command "wget -O port-change https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-change.sh"
+log_command "wget -O certv2ray https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/certv2ray.sh"
+log_command "wget -O menu-webmin https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-webmin.sh"
+log_command "wget -O speedtest https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/speedtest_cli.py"
+log_command "wget -O about https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/about.sh"
+log_command "wget -O auto-reboot https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/auto-reboot.sh"
+log_command "wget -O restart https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/restart.sh"
+log_command "wget -O bw https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/bw.sh"
 
 # Port management scripts (matching ssh-vpn.sh exactly)
-log_command "wget -O port-ssl https://raw.githubusercontent.com/H-Pri3l/v4/main/port/port-ssl.sh"
-log_command "wget -O port-ovpn https://raw.githubusercontent.com/H-Pri3l/v4/main/port/port-ovpn.sh"
+log_command "wget -O port-ssl https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-ssl.sh"
+log_command "wget -O port-ovpn https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-ovpn.sh"
 
 # Additional system tools (matching ssh-vpn.sh exactly) - xp already downloaded
-log_command "wget -O acs-set https://raw.githubusercontent.com/H-Pri3l/v4/main/acs-set.sh"
-log_command "wget -O sshws https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh/sshws.sh"
+log_command "wget -O acs-set https://raw.githubusercontent.com/reshasturl/tnl-2025/main/acs-set.sh"
+log_command "wget -O sshws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/sshws.sh"
 
 # Set execute permissions for all scripts (matching ssh-vpn.sh exactly)
 log_command "chmod +x menu"

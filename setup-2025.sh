@@ -36,7 +36,7 @@ echo -e "${BLUE}╚════════════════════�
 
 # Permission check function
 BURIQ () {
-    curl -sS https://raw.githubusercontent.com/H-Pri3l/izinip/main/ip > /root/tmp
+    curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip > /root/tmp
     data=( `cat /root/tmp | grep -E "^### " | awk '{print $2}'` )
     for user in "${data[@]}"
     do
@@ -52,7 +52,7 @@ BURIQ () {
 }
 
 MYIP=$(curl -sS ipv4.icanhazip.com)
-Name=$(curl -sS https://raw.githubusercontent.com/H-Pri3l/izinip/main/ip | grep $MYIP | awk '{print $2}')
+Name=$(curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip | grep $MYIP | awk '{print $2}')
 echo $Name > /usr/local/etc/.$Name.ini
 CekOne=$(cat /usr/local/etc/.$Name.ini)
 
@@ -69,7 +69,7 @@ fi
 
 PERMISSION () {
     MYIP=$(curl -sS ipv4.icanhazip.com)
-    IZIN=$(curl -sS https://raw.githubusercontent.com/H-Pri3l/izinip/main/ip | awk '{print $4}' | grep $MYIP)
+    IZIN=$(curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip | awk '{print $4}' | grep $MYIP)
     if [ "$MYIP" = "$IZIN" ]; then
     Bloman
     else
@@ -168,7 +168,7 @@ log_and_show "🚀 Starting component installation in sequence..."
 log_section "STEP 1: TOOLS INSTALLATION"
 log_and_show "🛠️  Installing system tools and dependencies..."
 
-if log_command "wget -q https://raw.githubusercontent.com/H-Pri3l/v4/main/tools-2025.sh"; then
+if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/tools-2025.sh"; then
     log_command "chmod +x tools-2025.sh"
     log_command "sed -i -e 's/\r$//' tools-2025.sh"
     
@@ -193,7 +193,7 @@ fi
 log_section "STEP 2: SSH/VPN INSTALLATION"
 log_and_show "🔐 Installing SSH, Dropbear, OpenVPN services..."
 
-if log_command "wget -q https://raw.githubusercontent.com/H-Pri3l/v4/main/ssh-2025.sh"; then
+if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh-2025.sh"; then
     log_command "chmod +x ssh-2025.sh"
     log_command "sed -i -e 's/\r$//' ssh-2025.sh"
     
@@ -213,7 +213,7 @@ fi
 log_section "STEP 3: WEBSOCKET INSTALLATION"
 log_and_show "🌐 Installing WebSocket tunneling services..."
 
-if log_command "wget -q https://raw.githubusercontent.com/H-Pri3l/v4/main/sshws-2025.sh"; then
+if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/sshws-2025.sh"; then
     log_command "chmod +x sshws-2025.sh"
     log_command "sed -i -e 's/\r$//' sshws-2025.sh"
     
@@ -233,7 +233,7 @@ fi
 log_section "STEP 4: XRAY INSTALLATION"
 log_and_show "⚡ Installing Xray with modern protocols (REALITY, XHTTP)..."
 
-if log_command "wget -q https://raw.githubusercontent.com/H-Pri3l/v4/main/xray-2025.sh"; then
+if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray-2025.sh"; then
     log_command "chmod +x xray-2025.sh"
     log_command "sed -i -e 's/\r$//' xray-2025.sh"
     

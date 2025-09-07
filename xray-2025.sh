@@ -5,7 +5,7 @@
 # Purpose: Install Xray with modern protocols (REALITY, XHTTP, enhanced features)
 # Log: Inherit dari setup-2025.sh
 # Version: Auto-detect latest Xray and Trojan-Go versions
-# Features: XHTTP, REALITY, VMess, VLess, Trojan, Shadowsocks
+# Features: XHTTP, REALITY, VMess, VLess, Trojan GFW, Trojan-Go
 # ========================================================================
 
 # Inherit logging system
@@ -19,7 +19,18 @@ log_and_show "⚡ Starting Xray installation with modern protocols..."
 
 # Detect latest Xray version automatically
 log_and_show "🔍 Detecting latest Xray version..."
-XRAY_VERSION="$(curl -s --connect-timeout 10 "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
+XRAY_VERSION="$(curl -s --connect-timeout 10 "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep tag_nam# Trojan management (Enhanced only)
+log_and_show "🔫 Installing Trojan management scripts..."
+log_command "wget -O /usr/local/bin/add-trojan-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-trojan-enhanced.sh"
+log_command "wget -O /usr/local/bin/trialtrojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojan.sh"
+log_command "wget -O /usr/local/bin/del-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-tr.sh"
+log_command "wget -O /usr/local/bin/renew-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renew-tr.sh"
+log_command "wget -O /usr/local/bin/cek-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-tr.sh"
+
+# Trojan-Go management
+log_and_show "🚀 Installing Trojan-Go management scripts..."
+log_command "wget -O /usr/local/bin/addtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/addtrgo.sh"
+log_command "wget -O /usr/local/bin/trialtrojango https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojango.sh"ed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
 if [ -z "$XRAY_VERSION" ] || [ "$XRAY_VERSION" = "null" ]; then
     log_and_show "⚠️ Failed to detect latest version (API timeout or error), using fallback v1.8.24"
     XRAY_VERSION="1.8.24"
@@ -116,6 +127,27 @@ UUID=${uuid}
 XRAY_VERSION=${XRAY_VERSION}
 EOF
 
+# Create SNI wildcard list for management scripts
+cat > /etc/xray/.sni-list << EOF
+www.microsoft.com
+www.google.com
+www.cloudflare.com
+www.apple.com
+discord.com
+support.zoom.us
+www.yahoo.com
+www.amazon.com
+cdn.cloudflare.com
+www.bing.com
+instagram.com
+facebook.com
+whatsapp.com
+tiktok.com
+youtube.com
+twitter.com
+telegram.org
+EOF
+
 log_and_show "✅ SSL certificate installed and REALITY keys generated"
 
 # Create comprehensive Xray configuration with all modern protocols
@@ -173,14 +205,13 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "xhttp",
         "xhttpSettings": {
-          "path": "/vless-xhttp",
-          "host": ["${DOMAIN}"]
+          "path": "/vless-xhttp"
         }
       }
     },
     {
       "listen": "0.0.0.0",
-      "port": 443,
+      "port": 8443,
       "protocol": "vless",
       "settings": {
         "decryption": "none",
@@ -199,7 +230,16 @@ cat > /etc/xray/config.json << EOF
           "show": false,
           "dest": "www.microsoft.com:443",
           "xver": 0,
-          "serverNames": ["www.microsoft.com"],
+          "serverNames": [
+            "www.microsoft.com",
+            "www.google.com",
+            "www.cloudflare.com", 
+            "www.apple.com",
+            "discord.com",
+            "support.zoom.us",
+            "www.yahoo.com",
+            "www.amazon.com"
+          ],
           "privateKey": "${REALITY_PRIVATE}",
           "shortIds": ["6ba85179e30d4fc2"]
         }
@@ -241,8 +281,7 @@ cat > /etc/xray/config.json << EOF
       "streamSettings": {
         "network": "xhttp",
         "xhttpSettings": {
-          "path": "/vmess-xhttp",
-          "host": ["${DOMAIN}"]
+          "path": "/vmess-xhttp"
         }
       }
     },
@@ -311,7 +350,6 @@ cat > /etc/xray/config.json << EOF
       "port": "25432",
       "protocol": "trojan",
       "settings": {
-        "decryption": "none",
         "clients": [
           {
             "password": "${uuid}"
@@ -324,27 +362,6 @@ cat > /etc/xray/config.json << EOF
         "network": "ws",
         "wsSettings": {
           "path": "/trojan-ws"
-        }
-      }
-    },
-    {
-      "listen": "127.0.0.1",
-      "port": "30300",
-      "protocol": "shadowsocks",
-      "settings": {
-        "clients": [
-          {
-            "method": "aes-128-gcm",
-            "password": "${uuid}"
-#ssws
-          }
-        ],
-        "network": "tcp,udp"
-      },
-      "streamSettings": {
-        "network": "ws",
-        "wsSettings": {
-          "path": "/ss-ws"
         }
       }
     },
@@ -393,39 +410,18 @@ cat > /etc/xray/config.json << EOF
       "port": "33456",
       "protocol": "trojan",
       "settings": {
-        "decryption": "none",
         "clients": [
           {
             "password": "${uuid}"
 #trojangrpc
           }
-        ]
+        ],
+        "udp": true
       },
       "streamSettings": {
         "network": "grpc",
         "grpcSettings": {
           "serviceName": "trojan-grpc"
-        }
-      }
-    },
-    {
-      "listen": "127.0.0.1",
-      "port": "30310",
-      "protocol": "shadowsocks",
-      "settings": {
-        "clients": [
-          {
-            "method": "aes-128-gcm",
-            "password": "${uuid}"
-#ssgrpc
-          }
-        ],
-        "network": "tcp,udp"
-      },
-      "streamSettings": {
-        "network": "grpc",
-        "grpcSettings": {
-          "serviceName": "ss-grpc"
         }
       }
     }
@@ -489,17 +485,62 @@ cat > /etc/xray/config.json << EOF
 }
 EOF
 
-# Generate SSL certificate for TLS
-log_and_show "📜 Generating SSL certificate for TLS protocols..."
-openssl req -new -x509 -days 3650 -nodes -out /etc/xray/xray.crt -keyout /etc/xray/xray.key << EOF
-ID
-Jakarta
-Jakarta
-YT-ZIXSTYLE
-VPN-Server
-${DOMAIN}
-admin@${DOMAIN}
+# Generate SSL certificate for TLS with SAN (Subject Alternative Names)
+log_and_show "📜 Generating SSL certificate with SAN for multiple domains..."
+cat > /tmp/ssl.conf << EOF
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C = ID
+ST = Jakarta
+L = Jakarta
+O = YT-ZIXSTYLE
+OU = VPN-Server
+CN = ${DOMAIN}
+emailAddress = admin@${DOMAIN}
+
+[v3_req]
+basicConstraints = CA:TRUE
+keyUsage = keyEncipherment, dataEncipherment, digitalSignature
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = ${DOMAIN}
+DNS.2 = *.${DOMAIN}
+DNS.3 = instagram.com
+DNS.4 = *.instagram.com
+DNS.5 = facebook.com
+DNS.6 = *.facebook.com
+DNS.7 = whatsapp.com
+DNS.8 = *.whatsapp.com
+DNS.9 = tiktok.com
+DNS.10 = *.tiktok.com
+DNS.11 = youtube.com
+DNS.12 = *.youtube.com
+DNS.13 = google.com
+DNS.14 = *.google.com
+DNS.15 = twitter.com
+DNS.16 = *.twitter.com
+DNS.17 = telegram.org
+DNS.18 = *.telegram.org
+DNS.19 = discord.com
+DNS.20 = *.discord.com
+DNS.21 = support.zoom.us
+DNS.22 = *.zoom.us
+DNS.23 = www.microsoft.com
+DNS.24 = *.microsoft.com
+DNS.25 = www.cloudflare.com
+DNS.26 = *.cloudflare.com
 EOF
+
+openssl req -new -x509 -days 3650 -nodes -out /etc/xray/xray.crt -keyout /etc/xray/xray.key -config /tmp/ssl.conf -extensions v3_req
+
+# Cleanup temporary file
+rm -f /tmp/ssl.conf
 
 log_command "chmod 644 /etc/xray/xray.crt"
 log_command "chmod 600 /etc/xray/xray.key"
@@ -554,22 +595,26 @@ cat > /etc/nginx/conf.d/xray.conf << EOF
 server {
     listen 80;
     listen [::]:80;
+    listen 443 ssl http2 reuseport;
+    listen [::]:443 ssl http2 reuseport;
     listen 8880;
     listen [::]:8880;
     listen 55;
     listen [::]:55;
     listen 8080;
     listen [::]:8080;
-    listen 8443 ssl http2 reuseport;
-    listen [::]:8443 http2 reuseport;
     listen 2098 ssl http2;
     listen [::]:2098 ssl http2;
-    server_name ${DOMAIN};
+    server_name _;
     
     ssl_certificate /etc/xray/xray.crt;
     ssl_certificate_key /etc/xray/xray.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    add_header Alt-Svc 'h3=":443"; ma=86400';
     ssl_ciphers EECDH+CHACHA20:EECDH+CHACHA20-draft:EECDH+ECDSA+AES128:EECDH+aRSA+AES128:RSA+AES128:EECDH+ECDSA+AES256:EECDH+aRSA+AES256:RSA+AES256:EECDH+ECDSA+3DES:EECDH+aRSA+3DES:RSA+3DES:!MD5;
-    ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
     
     root /home/vps/public_html;
     
@@ -661,17 +706,6 @@ server {
         proxy_set_header Host \$http_host;
     }
     
-    location = /ss-ws {
-        proxy_redirect off;
-        proxy_pass http://127.0.0.1:30300;
-        proxy_http_version 1.1;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$http_host;
-    }
-    
     location ^~ /vless-grpc {
         proxy_redirect off;
         grpc_set_header X-Real-IP \$remote_addr;
@@ -694,14 +728,6 @@ server {
         grpc_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         grpc_set_header Host \$http_host;
         grpc_pass grpc://127.0.0.1:33456;
-    }
-    
-    location ^~ /ss-grpc {
-        proxy_redirect off;
-        grpc_set_header X-Real-IP \$remote_addr;
-        grpc_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        grpc_set_header Host \$http_host;
-        grpc_pass grpc://127.0.0.1:30310;
     }
     
     location ^~ /trojango {
@@ -977,13 +1003,22 @@ echo "- add-vless-reality: VLess with REALITY protocol" >> /root/log-install.txt
 echo "- add-vless-xhttp: VLess with XHTTP transport" >> /root/log-install.txt
 echo "- add-ws-enhanced: Advanced VMess creation" >> /root/log-install.txt
 echo "- add-vmess-xhttp: VMess with XHTTP transport" >> /root/log-install.txt
+echo "" >> /root/log-install.txt
+echo "SNI Wildcard Features:" >> /root/log-install.txt
+echo "- Nginx server_name: _ (wildcard support)" >> /root/log-install.txt
+echo "- REALITY serverNames: Multiple domains support" >> /root/log-install.txt
+echo "- Custom SNI: instagram.com, facebook.com, whatsapp.com, etc" >> /root/log-install.txt
+echo "- SAN Certificate: Multi-domain SSL support for social media" >> /root/log-install.txt
 
 log_and_show "✅ Xray v${XRAY_VERSION} installation with XHTTP and REALITY completed"
+log_and_show "🌐 SNI Wildcard Support: ENABLED (server_name _)"
+log_and_show "🔒 REALITY Multiple serverNames: ENABLED"
 log_and_show "🚀 Enhanced management scripts tersedia dengan fitur modern:"
 log_and_show "   📝 add-vless-enhanced: Pembuatan VLess tingkat lanjut"
 log_and_show "   🔒 add-vless-reality: VLess dengan protokol REALITY"
 log_and_show "   ⚡ add-vless-xhttp: VLess dengan transport XHTTP"
 log_and_show "   📝 add-ws-enhanced: Pembuatan VMess tingkat lanjut" 
 log_and_show "   ⚡ add-vmess-xhttp: VMess dengan transport XHTTP"
+log_and_show "   🌐 Custom SNI: Mendukung custom domain di client (instagram.com, facebook.com, zoom.us, google.com, dll)"
 log_and_show "✅ Semua service berjalan dengan versi terbaru (auto-detect)"
 log_section "XRAY-2025.SH COMPLETED"

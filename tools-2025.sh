@@ -83,34 +83,151 @@ if ! command -v python >/dev/null 2>&1; then
     log_and_show "✅ Python symlink created"
 fi
 
-# Install vnstat from source (latest version - exact from tools.sh)
-log_and_show "📊 Installing vnstat from source..."
+# Install vnstat from source (Enhanced version 2.9 with hardened service)
+log_and_show "📊 Installing vnstat 2.9 from source with enhanced security..."
 cd /tmp
-log_command "wget -q https://humdi.net/vnstat/vnstat-2.6.tar.gz"
-if [[ -f vnstat-2.6.tar.gz ]]; then
-    log_command "tar zxvf vnstat-2.6.tar.gz"
-    cd vnstat-2.6
+log_command "wget -q https://humdi.net/vnstat/vnstat-2.9.tar.gz"
+if [[ -f vnstat-2.9.tar.gz ]]; then
+    log_command "tar zxvf vnstat-2.9.tar.gz"
+    cd vnstat-2.9
     log_command "./configure --prefix=/usr --sysconfdir=/etc"
     log_command "make && make install"
     cd /
-    log_command "rm -f /tmp/vnstat-2.6.tar.gz"
-    log_command "rm -rf /tmp/vnstat-2.6"
-    log_and_show "✅ vnstat installed from source"
+    log_command "rm -f /tmp/vnstat-2.9.tar.gz"
+    log_command "rm -rf /tmp/vnstat-2.9"
+    log_and_show "✅ vnstat 2.9 installed from source"
 fi
 
-# Configure vnstat
-log_and_show "⚙️ Configuring vnstat..."
+# Configure vnstat with enhanced security
+log_and_show "⚙️ Configuring vnstat with enhanced security..."
 log_command "vnstat -u -i $NET"
 # Fix vnstat.conf interface configuration
 log_command "sed -i 's/Interface \"eth0\"/Interface \"$NET\"/g' /etc/vnstat.conf"
 log_command "chown vnstat:vnstat /var/lib/vnstat -R"
+
+# Create hardened vnstat systemd service
+log_and_show "🔒 Creating hardened vnstat systemd service..."
+cat > /etc/systemd/system/vnstat.service << 'EOF'
+[Unit]
+Description=vnStat network traffic monitor
+Documentation=man:vnstatd(8) man:vnstat(1) man:vnstat.conf(5)
+After=network.target network-online.target nss-lookup.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/vnstat/vnstat.pid
+ExecStartPre=/bin/mkdir -p /var/run/vnstat
+ExecStartPre=/bin/chown vnstat:vnstat /var/run/vnstat
+ExecStart=/usr/bin/vnstatd -d
+ExecReload=/bin/kill -HUP $MAINPID
+User=vnstat
+Group=vnstat
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/vnstat /var/run/vnstat
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+log_command "systemctl daemon-reload"
 log_command "systemctl enable vnstat"
 log_command "systemctl start vnstat"
-log_command "/etc/init.d/vnstat restart"
+log_and_show "✅ vnstat configured with hardened systemd service"
 
-# Network tools (removed redundant iptables - already installed above)
-log_and_show "🛡️ Configuring security tools..."
+# Enhanced security tools with nginx DDoS protection
+log_and_show "🛡️ Configuring enhanced security tools with nginx DDoS protection..."
 log_command "apt install -y ufw fail2ban"
+
+# Configure fail2ban with nginx-specific rules
+log_and_show "🔒 Setting up fail2ban with nginx DDoS protection..."
+
+# Create nginx-ddos filter
+log_and_show "📝 Creating nginx-ddos fail2ban filter..."
+mkdir -p /etc/fail2ban/filter.d
+cat > /etc/fail2ban/filter.d/nginx-ddos.conf << 'EOF'
+# Fail2Ban filter for nginx DDoS protection
+[Definition]
+failregex = <HOST> -.*- .*HTTP/1.* .* .*$
+ignoreregex =
+EOF
+
+# Create nginx-specific jail configuration  
+log_and_show "� Creating nginx-specific fail2ban jail..."
+mkdir -p /etc/fail2ban/jail.d
+cat > /etc/fail2ban/jail.d/fail2ban-nginx.conf << 'EOF'
+[nginx-http-auth]
+enabled = true
+filter = nginx-http-auth
+port = http,https
+logpath = /var/log/nginx/error.log
+maxretry = 3
+findtime = 600
+bantime = 3600
+
+[nginx-noscript]
+enabled = true
+port = http,https
+filter = nginx-noscript
+logpath = /var/log/nginx/access.log
+maxretry = 6
+findtime = 600
+bantime = 3600
+
+[nginx-badbots]
+enabled = true
+port = http,https
+filter = nginx-badbots
+logpath = /var/log/nginx/access.log
+maxretry = 2
+findtime = 600
+bantime = 86400
+
+[nginx-noproxy]
+enabled = true
+port = http,https
+filter = nginx-noproxy
+logpath = /var/log/nginx/access.log
+maxretry = 2
+findtime = 600
+bantime = 86400
+
+[nginx-ddos]
+enabled = true
+port = http,https
+filter = nginx-ddos
+logpath = /var/log/nginx/access.log
+maxretry = 50
+findtime = 60
+bantime = 600
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+findtime = 600
+bantime = 3600
+EOF
+
+log_command "systemctl enable fail2ban"
+log_command "systemctl restart fail2ban"
+log_and_show "✅ fail2ban configured with nginx DDoS protection"
 
 # Performance tools
 log_and_show "⚡ Installing performance optimization tools..."
@@ -151,6 +268,9 @@ sleep 3
 echo "Tools: System packages, Python, network utilities" >> /root/log-install.txt
 echo "Development: gcc, make, build tools" >> /root/log-install.txt
 echo "Performance: haveged, rng-tools" >> /root/log-install.txt
+echo "vnStat: Version 2.9 with hardened systemd service" >> /root/log-install.txt
+echo "fail2ban: Enhanced with nginx DDoS protection rules" >> /root/log-install.txt
+echo "Security: SystemCallArchitectures, PrivateTmp, ProtectSystem" >> /root/log-install.txt
 
 log_and_show "✅ System tools installation completed"
 log_section "TOOLS-2025.SH COMPLETED"

@@ -20,7 +20,7 @@ log_and_show "🐍 Configuring Python2 for WebSocket services..."
 
 # Ensure python symlink exists
 if ! command -v python >/dev/null 2>&1; then
-    log_command "ln -sf /usr/bin/python2 /usr/bin/python"
+    log_command "ln -sf /usr/bin/python3 /usr/bin/python"
     log_and_show "✅ Python2 symlink created"
 fi
 
@@ -47,7 +47,7 @@ User=root
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
-ExecStart=/usr/bin/python -O /usr/local/bin/ws-dropbear 8080
+ExecStart=/usr/bin/python3 -O /usr/local/bin/ws-dropbear 8080
 Restart=always
 RestartSec=3
 
@@ -69,7 +69,7 @@ User=root
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
-ExecStart=/usr/bin/python -O /usr/local/bin/ws-stunnel
+ExecStart=/usr/bin/python3 -O /usr/local/bin/ws-stunnel
 Restart=always
 RestartSec=3
 

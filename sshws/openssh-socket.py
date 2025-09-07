@@ -18,8 +18,8 @@ PASS = ''
 # CONST
 BUFLEN = 4096 * 4
 TIMEOUT = 60
-DEFAULT_HOST = '127.0.0.1:109'
-RESPONSE = 'HTTP/1.1 101 WebSocket by YT ZIXSTYLE\r\nContent-Length: 104857600000\r\n\r\n'
+DEFAULT_HOST = '127.0.0.1:88'
+RESPONSE = 'HTTP/1.1 101 WebSocket bye MDX CHANNEL\r\nContent-Length: 104857600000\r\n\r\n'
 
 class Server(threading.Thread):
     def __init__(self, host, port):
@@ -136,14 +136,14 @@ class ConnectionHandler(threading.Thread):
                 if len(PASS) != 0 and passwd == PASS:
                     self.method_CONNECT(hostPort)
                 elif len(PASS) != 0 and passwd != PASS:
-                    self.client.send(b'HTTP/1.1 400 SALAHPASSWORD!\r\n\r\n')
+                    self.client.send(b'HTTP/1.1 400 WrongPass!\r\n\r\n')
                 elif hostPort.startswith('127.0.0.1') or hostPort.startswith('localhost'):
                     self.method_CONNECT(hostPort)
                 else:
-                    self.client.send(b'HTTP/1.1 403 DITUTUPBLOK!\r\n\r\n')
+                    self.client.send(b'HTTP/1.1 403 Forbidden!\r\n\r\n')
             else:
                 print('- No X-Real-Host!')
-                self.client.send(b'HTTP/1.1 400 ENTESALAH!\r\n\r\n')
+                self.client.send(b'HTTP/1.1 400 NoXRealHost!\r\n\r\n')
 
         except Exception as e:
             self.log += ' - error: ' + str(e)

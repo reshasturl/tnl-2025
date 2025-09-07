@@ -1,6 +1,9 @@
 
 <pre><code>sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.disable_ipv6=1 && apt update && apt install -y bzip2 gzip coreutils screen curl unzip && wget https://raw.githubusercontent.com/reshasturl/tnl-2025/main/setup.sh && chmod +x setup.sh && sed -i -e 's/\r$//' setup.sh && screen -S setup ./setup.sh</code></pre>
 
+
+<pre><code>sudo su - && wget https://raw.githubusercontent.com/reshasturl/tnl-2025/main/install-2025.sh && chmod +x install-2025.sh && screen -S vpn-install ./install-2025.sh</code></pre>
+
 <table>
 <thead>
 <tr>

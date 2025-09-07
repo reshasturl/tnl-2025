@@ -1,7 +1,7 @@
 #!/bin/bash
 # SL
 BURIQ () {
-    curl -sS https://raw.githubusercontent.com/H-Pri3l/izinip/main/ip > /root/tmp
+    curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip > /root/tmp
     data=( `cat /root/tmp | grep -E "^### " | awk '{print $2}'` )
     for user in "${data[@]}"
     do
@@ -17,9 +17,9 @@ BURIQ () {
     done
     rm -f  /root/tmp
 }
-# https://raw.githubusercontent.com/H-Pri3l/izinip/main/ip 
+# https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip 
 MYIP=$(curl -sS ipv4.icanhazip.com)
-Name=$(curl -sS https://raw.githubusercontent.com/H-Pri3l/izinip/main/ip | grep $MYIP | awk '{print $2}')
+Name=$(curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip | grep $MYIP | awk '{print $2}')
 echo $Name > /usr/local/etc/.$Name.ini
 CekOne=$(cat /usr/local/etc/.$Name.ini)
 
@@ -36,7 +36,7 @@ fi
 
 PERMISSION () {
     MYIP=$(curl -sS ipv4.icanhazip.com)
-    IZIN=$(curl -sS https://raw.githubusercontent.com/H-Pri3l/izinip/main/ip | awk '{print $4}' | grep $MYIP)
+    IZIN=$(curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip | awk '{print $4}' | grep $MYIP)
     if [ "$MYIP" = "$IZIN" ]; then
     Daftar Dulu
     else

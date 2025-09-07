@@ -23,18 +23,18 @@ sed -i '/#vmess-ws$/a\### '"$user $exp"'\
 },{"id": "'""$uuid""'"' /etc/xray/config.json
 
 # 2. GRPC (port 443)
-sed -i '/#vmess-grpc$/a\### '"$user $exp"'\
+sed -i '/#vmessgrpc$/a\### '"$user $exp"'\
 },{"id": "'""$uuid""'"' /etc/xray/config.json
 
-# 3. XHTTP (port 23460)
+# 3. XHTTP (port 80/443 via Nginx)
 sed -i '/#vmess-xhttp$/a\### '"$user $exp"'\
 },{"id": "'""$uuid""'"' /etc/xray/config.json
 
-# Generate Enhanced Client Configs
+# Generate Enhanced Client Configs - ALL using standard ports 80/443
 vmess_ws_tls="vmess://$(echo '{"v":"2","ps":"'"$user"'-WS-TLS","add":"'"$domain"'","port":"443","id":"'"$uuid"'","aid":"0","net":"ws","path":"/vmess","type":"none","host":"'"$domain"'","tls":"tls"}' | base64 -w 0)"
 vmess_ws_ntls="vmess://$(echo '{"v":"2","ps":"'"$user"'-WS-NTLS","add":"'"$domain"'","port":"80","id":"'"$uuid"'","aid":"0","net":"ws","path":"/vmess","type":"none","host":"'"$domain"'","tls":"none"}' | base64 -w 0)"
 vmess_grpc="vmess://$(echo '{"v":"2","ps":"'"$user"'-GRPC","add":"'"$domain"'","port":"443","id":"'"$uuid"'","aid":"0","net":"grpc","path":"vmess-grpc","type":"none","host":"'"$domain"'","tls":"tls"}' | base64 -w 0)"
-vmess_xhttp="vmess://$(echo '{"v":"2","ps":"'"$user"'-XHTTP","add":"'"$domain"'","port":"23460","id":"'"$uuid"'","aid":"0","net":"xhttp","path":"/vmess-xhttp","type":"none","host":"'"$domain"'","tls":"none"}' | base64 -w 0)"
+vmess_xhttp="vmess://$(echo '{"v":"2","ps":"'"$user"'-XHTTP","add":"'"$domain"'","port":"443","id":"'"$uuid"'","aid":"0","net":"xhttp","path":"/vmess-xhttp","type":"none","host":"'"$domain"'","tls":"tls"}' | base64 -w 0)"
 
 # Create Enhanced Config File
 cat > /home/vps/public_html/vmess-enhanced-${user}.txt << EOF
@@ -45,7 +45,8 @@ Remarks        : ${user}
 Domain         : ${domain}
 UUID           : ${uuid}
 Networks       : ws/grpc/xhttp
-Ports          : 443 (TLS) / 80 (none-TLS) / 23460 (XHTTP)
+Ports          : 80 (HTTP non-TLS via Nginx) / 443 (HTTPS TLS via Nginx)
+Protocol Route : Nginx → WS/GRPC/XHTTP internal routing
 Expired        : $exp
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Link TLS       : $vmess_ws_tls
@@ -68,7 +69,8 @@ echo -e "Remarks        : ${user}"
 echo -e "Domain         : ${domain}"
 echo -e "UUID           : ${uuid}"
 echo -e "Networks       : ws/grpc/xhttp"
-echo -e "Ports          : 443 (TLS) / 80 (none-TLS) / 23460 (XHTTP)"
+echo -e "Ports          : 80 (HTTP non-TLS via Nginx) / 443 (HTTPS TLS via Nginx)"
+echo -e "Protocol Route : Nginx → WS/GRPC/XHTTP internal routing"
 echo -e "Expired        : $exp"
 echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "Link TLS       : $vmess_ws_tls"

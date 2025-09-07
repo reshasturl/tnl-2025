@@ -7,7 +7,7 @@ echo -e "\e[33m━━━━━━━━━━━━━━━━━━━━━�
 echo -e "\E[0;100;33m      • TROJAN GFW MENU •          \E[0m"
 echo -e "\e[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo -e ""
-echo -e " [\e[36m•1\e[0m] Create Account Trojan "
+echo -e " [\e[36m•1\e[0m] Create Account Trojan"
 echo -e " [\e[36m•2\e[0m] Trial Account Trojan "
 echo -e " [\e[36m•3\e[0m] Extending Account Trojan Active Life "
 echo -e " [\e[36m•4\e[0m] Delete Account Trojan "
@@ -22,7 +22,7 @@ echo -e ""
 read -p " Select menu : " opt
 echo -e ""
 case $opt in
-1) clear ; add-tr ;;
+1) clear ; add-trojan-enhanced ;;
 2) clear ; trialtrojan ;;
 3) clear ; renew-tr ;;
 4) clear ; del-tr ;;

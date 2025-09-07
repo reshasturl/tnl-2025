@@ -877,15 +877,18 @@ log_command "wget -O /usr/local/bin/menu-trojan https://raw.githubusercontent.co
 # Install comprehensive Xray account management scripts
 log_and_show "📱 Installing comprehensive Xray management tools..."
 
-# VMess management
+# VMess management (Enhanced + Legacy)
+log_and_show "🔧 Installing VMess management scripts..."
 log_command "wget -O /usr/local/bin/add-ws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-ws.sh"
 log_command "wget -O /usr/local/bin/add-ws-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-ws-enhanced.sh"
+log_command "wget -O /usr/local/bin/add-vmess-xhttp https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vmess-xhttp.sh"
 log_command "wget -O /usr/local/bin/trialvmess https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialvmess.sh"
 log_command "wget -O /usr/local/bin/renew-ws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renew-ws.sh"
 log_command "wget -O /usr/local/bin/del-ws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-ws.sh"
 log_command "wget -O /usr/local/bin/cek-ws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-ws.sh"
 
-# VLess management  
+# VLess management (Enhanced + Modern Protocols)
+log_and_show "🚀 Installing VLess management scripts (Enhanced + REALITY + XHTTP)..."
 log_command "wget -O /usr/local/bin/add-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vless.sh"
 log_command "wget -O /usr/local/bin/add-vless-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vless-enhanced.sh"
 log_command "wget -O /usr/local/bin/add-vless-reality https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vless-reality.sh"
@@ -902,22 +905,33 @@ log_command "wget -O /usr/local/bin/renew-tr https://raw.githubusercontent.com/r
 log_command "wget -O /usr/local/bin/del-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-tr.sh"
 log_command "wget -O /usr/local/bin/cek-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-tr.sh"
 
-# Trojan-Go management
+# Trojan-Go management (Advanced Trojan Protocol)
+log_and_show "🔒 Installing Trojan-Go management scripts..."
 log_command "wget -O /usr/local/bin/addtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/addtrgo.sh"
 log_command "wget -O /usr/local/bin/trialtrojango https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojango.sh"
 log_command "wget -O /usr/local/bin/renewtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renewtrgo.sh"
 log_command "wget -O /usr/local/bin/deltrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/deltrgo.sh"
 log_command "wget -O /usr/local/bin/cektrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cektrgo.sh"
 
-# VMess XHTTP management
-log_command "wget -O /usr/local/bin/add-vmess-xhttp https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-vmess-xhttp.sh"
-
-# Additional Xray utilities
+# Additional modern protocol management
+log_and_show "⚡ Installing additional modern protocol utilities..."
 log_command "wget -O /usr/local/bin/cekxray https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cekxray.sh"
 log_command "wget -O /usr/local/bin/certv2ray https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/certv2ray.sh"
 
 # Set permissions for all scripts
 log_command "chmod +x /usr/local/bin/*"
+
+# Create symbolic links for enhanced scripts as defaults
+log_and_show "🔗 Creating symbolic links for enhanced scripts..."
+log_command "ln -sf /usr/local/bin/add-vless-enhanced /usr/local/bin/add-vless-default"
+log_command "ln -sf /usr/local/bin/add-ws-enhanced /usr/local/bin/add-ws-default"
+
+# Create backward compatibility links
+log_command "ln -sf /usr/local/bin/add-vless-enhanced /usr/bin/add-vless-enhanced"
+log_command "ln -sf /usr/local/bin/add-vless-reality /usr/bin/add-vless-reality"
+log_command "ln -sf /usr/local/bin/add-vless-xhttp /usr/bin/add-vless-xhttp"
+log_command "ln -sf /usr/local/bin/add-vmess-xhttp /usr/bin/add-vmess-xhttp"
+log_command "ln -sf /usr/local/bin/add-ws-enhanced /usr/bin/add-ws-enhanced"
 
 # Create symbolic link for menu
 log_command "ln -sf /usr/local/bin/menu /usr/bin/menu"
@@ -955,6 +969,21 @@ echo "Trojan-Go: 2087" >> /root/log-install.txt
 echo "Shadowsocks WS: 80, 443" >> /root/log-install.txt
 echo "Shadowsocks GRPC: 443" >> /root/log-install.txt
 
+# Enhanced Scripts Information
+echo "" >> /root/log-install.txt
+echo "Enhanced Management Scripts:" >> /root/log-install.txt
+echo "- add-vless-enhanced: Advanced VLess creation" >> /root/log-install.txt
+echo "- add-vless-reality: VLess with REALITY protocol" >> /root/log-install.txt
+echo "- add-vless-xhttp: VLess with XHTTP transport" >> /root/log-install.txt
+echo "- add-ws-enhanced: Advanced VMess creation" >> /root/log-install.txt
+echo "- add-vmess-xhttp: VMess with XHTTP transport" >> /root/log-install.txt
+
 log_and_show "✅ Xray v${XRAY_VERSION} installation with XHTTP and REALITY completed"
-log_and_show "✅ All services running with auto-detected latest versions"
+log_and_show "🚀 Enhanced management scripts tersedia dengan fitur modern:"
+log_and_show "   📝 add-vless-enhanced: Pembuatan VLess tingkat lanjut"
+log_and_show "   🔒 add-vless-reality: VLess dengan protokol REALITY"
+log_and_show "   ⚡ add-vless-xhttp: VLess dengan transport XHTTP"
+log_and_show "   📝 add-ws-enhanced: Pembuatan VMess tingkat lanjut" 
+log_and_show "   ⚡ add-vmess-xhttp: VMess dengan transport XHTTP"
+log_and_show "✅ Semua service berjalan dengan versi terbaru (auto-detect)"
 log_section "XRAY-2025.SH COMPLETED"

@@ -97,8 +97,17 @@ fi
 
 # Configure vnstat with enhanced security
 log_and_show "⚙️ Configuring vnstat with enhanced security..."
-# Use --create instead of -u for vnstat 2.9 compatibility
-log_command "vnstat --create -i $NET" || log_and_show "⚠️ vnstat database may already exist"
+# Create vnstat database with correct parameter for different versions
+if vnstat --help 2>/dev/null | grep -q "\--create"; then
+    log_command "vnstat --create -i $NET" || log_and_show "⚠️ vnstat database may already exist"
+elif vnstat --help 2>/dev/null | grep -q "\-u"; then
+    log_command "vnstat -u -i $NET" || log_and_show "⚠️ vnstat database may already exist"
+else
+    # Fallback: Try basic vnstat initialization without parameters
+    log_and_show "⚠️ Using fallback vnstat initialization..."
+    vnstat -i $NET 2>/dev/null || true
+    systemctl enable vnstat 2>/dev/null || true
+fi
 # Fix vnstat.conf interface configuration
 log_command "sed -i 's/Interface \"eth0\"/Interface \"$NET\"/g' /etc/vnstat.conf"
 log_command "chown vnstat:vnstat /var/lib/vnstat -R"
@@ -145,6 +154,7 @@ EOF
 
 log_command "systemctl daemon-reload"
 log_command "systemctl enable vnstat"
+# Try to start vnstat service, but don't fail if it doesn't work
 if ! systemctl start vnstat; then
     log_and_show "⚠️ vnstat service may need manual restart after system reboot"
 fi

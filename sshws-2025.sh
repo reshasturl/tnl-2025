@@ -15,6 +15,13 @@ fi
 log_section "SSHWS-2025.SH STARTED"
 log_and_show "🌐 Starting WebSocket tunneling installation..."
 
+# Install Nginx first
+log_and_show "🌐 Installing Nginx web server..."
+log_command "apt install -y nginx"
+
+# Ensure nginx directory exists 
+log_command "mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled"
+
 # Use Python2 from tools-2025.sh installation
 log_and_show "🐍 Configuring Python2 for WebSocket services..."
 
@@ -82,11 +89,12 @@ log_command "chmod 644 /etc/systemd/system/ws-dropbear.service"
 log_command "chmod 644 /etc/systemd/system/ws-stunnel.service"
 
 # Configure Nginx for WebSocket proxy
-log_and_show "🌐 Installing and configuring Nginx..."
-log_command "apt install -y nginx"
+log_and_show "🌐 Configuring Nginx..."
 
-# Backup original nginx config
-log_command "cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup"
+# Backup original nginx config if exists
+if [ -f /etc/nginx/nginx.conf ]; then
+    log_command "cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup"
+fi
 
 # Create optimized nginx configuration
 cat > /etc/nginx/nginx.conf << 'EOF'

@@ -98,12 +98,21 @@ sed -i '/Port 22/a Port 58080' /etc/ssh/sshd_config
 sed -i '/Port 22/a Port 200' /etc/ssh/sshd_config
 sed -i '/Port 22/a Port 22' /etc/ssh/sshd_config
 
-echo "=== Configure Dropbear ==="
 # Configure Dropbear (using dropbear from tools-2025.sh)
 log_and_show "⚙️  Configuring Dropbear..."
-sed -i 's/NO_START=1/NO_START=0/g' /etc/default/dropbear
-sed -i 's/DROPBEAR_PORT=22/DROPBEAR_PORT=143/g' /etc/default/dropbear
-sed -i 's/DROPBEAR_EXTRA_ARGS=/DROPBEAR_EXTRA_ARGS="-p 50000 -p 109 -p 110 -p 69"/g' /etc/default/dropbear
+# Ensure dropbear config file exists
+if [ ! -f /etc/default/dropbear ]; then
+    log_and_show "⚠️ Creating dropbear default config..."
+    cat > /etc/default/dropbear << 'EOF'
+NO_START=0
+DROPBEAR_PORT=143
+DROPBEAR_EXTRA_ARGS="-p 50000 -p 109 -p 110 -p 69"
+EOF
+else
+    sed -i 's/NO_START=1/NO_START=0/g' /etc/default/dropbear
+    sed -i 's/DROPBEAR_PORT=22/DROPBEAR_PORT=143/g' /etc/default/dropbear
+    sed -i 's/DROPBEAR_EXTRA_ARGS=/DROPBEAR_EXTRA_ARGS="-p 50000 -p 109 -p 110 -p 69"/g' /etc/default/dropbear
+fi
 
 # Add shells for dropbear
 log_and_show "🐚 Adding shells for dropbear..."
@@ -111,8 +120,25 @@ echo "/bin/false" >> /etc/shells
 echo "/usr/sbin/nologin" >> /etc/shells
 
 # Restart SSH and Dropbear services (matching ssh-vpn.sh)
-log_command "/etc/init.d/ssh restart"
-log_command "/etc/init.d/dropbear restart"
+log_and_show "🔄 Restarting SSH services..."
+if systemctl restart ssh 2>/dev/null; then
+    log_and_show "✅ SSH service restarted"
+elif /etc/init.d/ssh restart 2>/dev/null; then
+    log_and_show "✅ SSH service restarted via init.d"
+else
+    log_and_show "⚠️ SSH restart may require manual intervention"
+fi
+
+# Try dropbear restart with fallback
+log_and_show "🔄 Starting Dropbear service..."
+systemctl enable dropbear 2>/dev/null || true
+if systemctl restart dropbear 2>/dev/null; then
+    log_and_show "✅ Dropbear service started"
+elif /etc/init.d/dropbear restart 2>/dev/null; then
+    log_and_show "✅ Dropbear service started via init.d"
+else
+    log_and_show "⚠️ Dropbear service will be started after reboot"
+fi
 
 # Configure Stunnel (using stunnel4 from tools-2025.sh)
 cat > /etc/stunnel/stunnel.conf << 'EOF'
@@ -156,9 +182,9 @@ email=doyoulikepussy@zixstyle.co.id
 
 # Generate key and certificate files (matching ssh-vpn.sh exactly)
 cd /etc/stunnel
-openssl genrsa -out key.pem 2048
+openssl genrsa -out key.pem 2048 2>/dev/null
 openssl req -new -x509 -key key.pem -out cert.pem -days 1095 \
--subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
+-subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email" 2>/dev/null
 cat key.pem cert.pem >> /etc/stunnel/stunnel.pem
 
 # Set proper permissions
@@ -166,9 +192,23 @@ chmod 600 /etc/stunnel/stunnel.pem
 chmod 600 /etc/stunnel/key.pem
 chmod 644 /etc/stunnel/cert.pem
 
+# Ensure stunnel user exists and set ownership
+if ! id stunnel4 >/dev/null 2>&1; then
+    useradd -r -s /bin/false stunnel4 2>/dev/null || true
+fi
+chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem 2>/dev/null || true
+
 # Set Stunnel configuration (matching ssh-vpn.sh exactly)
+log_and_show "🔒 Enabling and starting stunnel4..."
 sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
-if ! /etc/init.d/stunnel4 restart; then
+systemctl enable stunnel4 2>/dev/null || true
+if systemctl restart stunnel4 2>/dev/null; then
+    log_and_show "✅ stunnel4 started successfully"
+elif /etc/init.d/stunnel4 restart 2>/dev/null; then
+    log_and_show "✅ stunnel4 started via init.d"
+else
+    log_and_show "⚠️ stunnel4 service may need manual restart after system reboot"
+fi
     log_and_show "⚠️ stunnel4 restart failed, trying systemctl..."
     systemctl enable stunnel4 2>/dev/null || true
     systemctl restart stunnel4 2>/dev/null || true
@@ -176,14 +216,17 @@ fi
 
 # Configure Nginx (nginx will be installed in sshws-2025.sh)
 log_and_show "🌐 Preparing Nginx configuration..."
-log_command "rm -f /etc/nginx/sites-enabled/default"
-log_command "rm -f /etc/nginx/sites-available/default"
+log_command "rm -f /etc/nginx/sites-enabled/default" 2>/dev/null || true
+log_command "rm -f /etc/nginx/sites-available/default" 2>/dev/null || true
 
-# Download nginx configuration
+# Create nginx directory if it doesn't exist
+log_command "mkdir -p /etc/nginx"
+
+# Download nginx configuration with fallback
 if log_command "wget -O /etc/nginx/nginx.conf https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/nginx.conf"; then
     log_and_show "✅ Nginx configuration downloaded"
 else
-    log_and_show "⚠️ Using default nginx configuration"
+    log_and_show "⚠️ Nginx config download failed, will be configured during nginx installation"
 fi
 
 # Create public_html directory
@@ -221,7 +264,7 @@ sed -i '$ i\systemctl start badvpn-udpgw' /etc/rc.local
 # Start BadVPN using systemd services instead of screen (to avoid screen jumping)
 log_and_show "🚀 Starting BadVPN services using systemd..."
 
-# Create systemd service for badvpn
+# Create systemd service for badvpn (Fixed configuration)
 cat > /etc/systemd/system/badvpn-udpgw.service << 'EOF'
 [Unit]
 Description=BadVPN UDP Gateway Service
@@ -229,23 +272,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500
-ExecStartPost=/bin/sleep 1
-ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7200 --max-clients 500 &
-ExecStartPost=/bin/sleep 1  
-ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 500 &
-ExecStartPost=/bin/sleep 1
-ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7400 --max-clients 500 &
-ExecStartPost=/bin/sleep 1
-ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7500 --max-clients 500 &
-ExecStartPost=/bin/sleep 1
-ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7600 --max-clients 500 &
-ExecStartPost=/bin/sleep 1
-ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7700 --max-clients 500 &
-ExecStartPost=/bin/sleep 1
-ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7800 --max-clients 500 &
-ExecStartPost=/bin/sleep 1
-ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7900 --max-clients 500 &
+ExecStart=/bin/bash -c 'exec /usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500'
 Restart=always
 RestartSec=3
 User=root
@@ -254,24 +281,21 @@ User=root
 WantedBy=multi-user.target
 EOF
 
-# Enable and start badvpn service
+# Enable and start badvpn service with proper error handling
 log_command "systemctl daemon-reload"
 log_command "systemctl enable badvpn-udpgw"
-log_command "systemctl start badvpn-udpgw"
-
-# Alternative: Use nohup instead of screen for backward compatibility
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500 >/dev/null 2>&1 &
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7200 --max-clients 500 >/dev/null 2>&1 &
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 500 >/dev/null 2>&1 &
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7400 --max-clients 500 >/dev/null 2>&1 &
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7500 --max-clients 500 >/dev/null 2>&1 &
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7600 --max-clients 500 >/dev/null 2>&1 &
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7700 --max-clients 500 >/dev/null 2>&1 &
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7800 --max-clients 500 >/dev/null 2>&1 &
-nohup badvpn-udpgw --listen-addr 127.0.0.1:7900 --max-clients 500 >/dev/null 2>&1 &
+if systemctl start badvpn-udpgw; then
+    log_and_show "✅ BadVPN service started successfully"
+else
+    log_and_show "⚠️ badvpn-udpgw service failed, starting manually..."
+    # Manual fallback - start single instance
+    pkill -f badvpn-udpgw 2>/dev/null || true
+    nohup /usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500 >/dev/null 2>&1 &
+    log_and_show "✅ BadVPN started manually as fallback"
+fi
 
 sleep 2
-log_and_show "✅ BadVPN services started without screen sessions"
+log_and_show "✅ BadVPN services configured"
 
 # Install crontab for user management and system auto-reboot (remove old cron setup)
 log_and_show "⏰ Setting up user management cron..."

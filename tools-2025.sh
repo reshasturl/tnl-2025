@@ -6,9 +6,6 @@
 # Log: Inherit dari setup-2025.sh
 # ===============================================================================
 
-# Prevent interactive prompts during package installation
-export DEBIAN_FRONTEND=noninteractive
-
 # Inherit logging system
 if [ -z "$INSTALL_LOG_PATH" ]; then
     echo "ERROR: Must be called from setup-2025.sh"
@@ -66,7 +63,7 @@ log_command "apt install -y libnss3-dev libnspr4-dev pkg-config libpam0g-dev lib
 # Network utilities and monitoring
 log_and_show "🌐 Installing network utilities..."
 log_command "apt install -y speedtest-cli dnsutils netcat-openbsd iperf3 mtr-tiny tcpdump"
-log_command "apt install -y iptables iptables-persistent netfilter-persistent >/dev/null 2>&1"
+log_command "apt install -y iptables iptables-persistent netfilter-persistent"
 
 # Install Node.js 16.x (exact version from tools.sh)
 log_and_show "🟢 Installing Node.js 16.x..."

@@ -68,9 +68,9 @@ log_and_show "🌐 Installing network utilities..."
 log_command "apt install -y speedtest-cli dnsutils netcat-openbsd iperf3 mtr-tiny tcpdump"
 log_command "apt install -y iptables iptables-persistent netfilter-persistent"
 
-# Install Node.js 16.x (exact version from tools.sh)
-log_and_show "🟢 Installing Node.js 16.x..."
-log_command "curl -sSL https://deb.nodesource.com/setup_16.x | bash -"
+# Install Node.js 20 LTS (updated from deprecated 16.x)
+log_and_show "🟢 Installing Node.js 20 LTS..."
+log_command "curl -sSL https://deb.nodesource.com/setup_20.x | bash -"
 log_command "apt-get install nodejs -y"
 
 # Python environment

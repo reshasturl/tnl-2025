@@ -48,30 +48,136 @@ log_command "apt install -y iptables iptables-persistent"
 log_command "apt install -y curl socat xz-utils wget apt-transport-https gnupg gnupg2 gnupg1 dnsutils lsb-release"
 log_command "apt install -y socat cron bash-completion ntpdate zip pwgen openssl netcat"
 
-# Configure time and timezone (from ins-xray.sh)
+# Configure time and timezone (from ins-xray.sh) with error handling
 log_and_show "🕒 Configuring time and timezone..."
-log_command "ntpdate pool.ntp.org"
 log_command "timedatectl set-ntp true"
-log_command "systemctl enable chronyd"
-log_command "systemctl restart chronyd"
-log_command "systemctl enable chrony"
-log_command "systemctl restart chrony"
+
+# Handle chronyd/chrony installation issues - Fix for alias conflict
+log_and_show "⏰ Configuring time synchronization service..."
+if systemctl list-unit-files | grep -q "^chrony.service"; then
+    log_command "systemctl enable chrony" || log_and_show "⚠️ chrony enable failed"
+    log_command "systemctl restart chrony" || log_and_show "⚠️ chrony restart failed"
+elif systemctl list-unit-files | grep -q "^chronyd.service"; then
+    # Check if chronyd is an alias, use chrony instead
+    if systemctl show chronyd.service | grep -q "Id=chrony.service"; then
+        log_and_show "⚠️ chronyd is alias for chrony, using chrony service"
+        log_command "systemctl enable chrony" || log_and_show "⚠️ chrony enable failed"
+        log_command "systemctl restart chrony" || log_and_show "⚠️ chrony restart failed"
+    else
+        log_command "systemctl enable chronyd" || log_and_show "⚠️ chronyd enable failed"
+        log_command "systemctl restart chronyd" || log_and_show "⚠️ chronyd restart failed"
+    fi
+elif command -v chronyd >/dev/null 2>&1; then
+    log_and_show "⚠️ chronyd command found but no systemd service, trying manual restart"
+    chronyd -d 2>/dev/null || log_and_show "⚠️ chronyd manual start failed"
+elif command -v chrony >/dev/null 2>&1; then
+    log_and_show "⚠️ chrony command found but no systemd service, trying manual restart"
+    chrony -d 2>/dev/null || log_and_show "⚠️ chrony manual start failed"
+else
+    log_and_show "⚠️ No chrony/chronyd found, using systemd-timesyncd as fallback"
+    log_command "systemctl enable systemd-timesyncd"
+    log_command "systemctl restart systemd-timesyncd"
+fi
+
 log_command "timedatectl set-timezone Asia/Jakarta"
-log_command "chronyc sourcestats -v"
-log_command "chronyc tracking -v"
+
+# Time synchronization with fallback
+if command -v ntpdate >/dev/null 2>&1; then
+    log_command "ntpdate pool.ntp.org" || log_and_show "⚠️ ntpdate failed, time sync may be inaccurate"
+fi
+
+# Check chrony status if available
+if command -v chronyc >/dev/null 2>&1; then
+    chronyc sourcestats -v 2>/dev/null || log_and_show "⚠️ chronyc sourcestats unavailable"
+    chronyc tracking -v 2>/dev/null || log_and_show "⚠️ chronyc tracking unavailable"
+fi
 
 # Download and install Xray using official installer with detected version
 log_and_show "📥 Downloading & Installing Xray core v${XRAY_VERSION} using official installer..."
 if ! bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version ${XRAY_VERSION}; then
     log_and_show "⚠️ Official installer failed, trying alternative method..."
     # Alternative installation method
-    if ! curl -L -o /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh; then
-        log_and_show "❌ Failed to download Xray installer, continuing with graceful error handling..."
-    elif ! bash /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION}; then
+    if curl -L -o /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh; then
+        if bash /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION}; then
+            log_and_show "✅ Alternative Xray installation succeeded"
+        else
+            log_and_show "⚠️ Alternative installation failed, trying manual Xray installation..."
+            # Manual Xray installation with architecture detection
+            XRAY_ARCH="64"
+            case $(uname -m) in
+                "armv7l") XRAY_ARCH="arm32-v7a" ;;
+                "aarch64") XRAY_ARCH="arm64-v8a" ;;
+                "armv6l") XRAY_ARCH="arm32-v6" ;;
+                "i386"|"i686") XRAY_ARCH="32" ;;
+                *) XRAY_ARCH="64" ;;
+            esac
+            
+            log_and_show "🔽 Downloading Xray binary for ${XRAY_ARCH} architecture..."
+            if wget -O /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip" 2>/dev/null; then
+                if unzip -q /tmp/xray.zip -d /tmp/xray/ 2>/dev/null; then
+                    if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
+                        log_and_show "✅ Xray installed manually"
+                        # Create basic systemd service if not exists
+                        if [[ ! -f /etc/systemd/system/xray.service ]]; then
+                            cat > /etc/systemd/system/xray.service << 'EOF'
+[Unit]
+Description=Xray Service
+Documentation=https://github.com/xtls
+After=network.target nss-lookup.target
+
+[Service]
+User=www-data
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/xray run -config /etc/xray/config.json
+Restart=on-failure
+RestartPreventExitStatus=23
+LimitNPROC=10000
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target
+EOF
+                            systemctl daemon-reload
+                        fi
+                    else
+                        log_and_show "❌ Failed to copy Xray binary"
+                    fi
+                    rm -rf /tmp/xray* 2>/dev/null
+                else
+                    log_and_show "❌ Failed to extract Xray archive"
+                fi
+            else
+                log_and_show "❌ Failed to download Xray binary"
+            fi
+        fi
+    else
         log_and_show "❌ Alternative Xray installation failed, continuing with graceful error handling..."
     fi
+else
+    log_and_show "✅ Official Xray installer succeeded"
 fi
-log_and_show "✅ Xray core installation completed"
+
+# Verify Xray installation
+if command -v xray >/dev/null 2>&1; then
+    log_and_show "✅ Xray binary is available: $(which xray)"
+    log_and_show "✅ Xray version: $(xray version 2>/dev/null | head -n1 || echo 'Version check failed')"
+else
+    log_and_show "⚠️ Xray binary not found, some features may not work"
+fi
+        fi
+        rm -f /tmp/xray-install.sh
+    else
+        log_and_show "⚠️ Failed to download Xray installer, checking existing installation..."
+        if command -v xray >/dev/null 2>&1; then
+            log_and_show "✅ Xray binary already exists, continuing..."
+        else
+            log_and_show "⚠️ Xray installation failed completely, may need manual intervention"
+        fi
+    fi
+fi
+log_and_show "✅ Xray core installation process completed"
 
 # Create Xray directories (comprehensive from ins-xray.sh)
 log_and_show "📁 Creating Xray directories and domain socket..."
@@ -94,15 +200,45 @@ log_command "touch /var/log/xray/error2.log"
 # Stop nginx for SSL certificate generation
 log_command "systemctl stop nginx"
 
-# Install and configure SSL certificate using acme.sh
+# Install and configure SSL certificate using acme.sh with error handling
 log_and_show "🔒 Setting up SSL certificate using acme.sh..."
 log_command "mkdir -p /root/.acme.sh"
-log_command "curl https://acme-install.netlify.app/acme.sh -o /root/.acme.sh/acme.sh"
-log_command "chmod +x /root/.acme.sh/acme.sh"
-log_command "/root/.acme.sh/acme.sh --upgrade --auto-upgrade"
-log_command "/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt"
-log_command "/root/.acme.sh/acme.sh --issue -d ${DOMAIN} --standalone -k ec-256"
-log_command "/root/.acme.sh/acme.sh --installcert -d ${DOMAIN} --fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc"
+
+# Download acme.sh with fallback options
+if ! log_command "curl https://acme-install.netlify.app/acme.sh -o /root/.acme.sh/acme.sh"; then
+    log_and_show "⚠️ Primary acme.sh download failed, trying GitHub..."
+    if ! log_command "curl https://raw.githubusercontent.com/acmesh-official/acme.sh/master/acme.sh -o /root/.acme.sh/acme.sh"; then
+        log_and_show "⚠️ GitHub acme.sh download failed, trying official installer..."
+        if ! log_command "curl https://get.acme.sh | sh"; then
+            log_and_show "⚠️ All acme.sh download methods failed, using fallback SSL configuration"
+            # Create self-signed certificate as fallback
+            log_command "openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -subj \"/C=ID/ST=Jakarta/L=Jakarta/O=YT-ZIXSTYLE/CN=${DOMAIN}\" -keyout /etc/xray/xray.key -out /etc/xray/xray.crt"
+            log_and_show "⚠️ Self-signed certificate created as fallback"
+            return
+        fi
+    fi
+fi
+
+if [[ -f /root/.acme.sh/acme.sh ]]; then
+    log_command "chmod +x /root/.acme.sh/acme.sh"
+    
+    # Configure acme.sh with error handling
+    if log_command "/root/.acme.sh/acme.sh --upgrade --auto-upgrade"; then
+        log_command "/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt"
+        
+        # Issue certificate with error handling
+        if log_command "/root/.acme.sh/acme.sh --issue -d ${DOMAIN} --standalone -k ec-256"; then
+            log_command "/root/.acme.sh/acme.sh --installcert -d ${DOMAIN} --fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc"
+            log_and_show "✅ SSL certificate installed successfully"
+        else
+            log_and_show "⚠️ SSL certificate issuance failed, creating self-signed certificate"
+            log_command "openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -subj \"/C=ID/ST=Jakarta/L=Jakarta/O=YT-ZIXSTYLE/CN=${DOMAIN}\" -keyout /etc/xray/xray.key -out /etc/xray/xray.crt"
+        fi
+    else
+        log_and_show "⚠️ acme.sh setup failed, creating self-signed certificate"
+        log_command "openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -subj \"/C=ID/ST=Jakarta/L=Jakarta/O=YT-ZIXSTYLE/CN=${DOMAIN}\" -keyout /etc/xray/xray.key -out /etc/xray/xray.crt"
+    fi
+fi
 
 # Create SSL renewal script
 cat > /usr/local/bin/ssl_renew.sh << 'EOF'
@@ -121,11 +257,24 @@ if ! grep -q 'ssl_renew.sh' /var/spool/cron/crontabs/root 2>/dev/null; then
     log_and_show "✅ SSL auto-renewal added to crontab"
 fi
 
-# Generate REALITY key pair for modern protocols
+# Generate REALITY key pair for modern protocols with error handling
 log_and_show "🔐 Generating REALITY key pair..."
-REALITY_KEYS=$(/usr/local/bin/xray x25519)
-REALITY_PRIVATE=$(echo "${REALITY_KEYS}" | grep "Private key:" | awk '{print $3}')
-REALITY_PUBLIC=$(echo "${REALITY_KEYS}" | grep "Public key:" | awk '{print $3}')
+if command -v xray >/dev/null 2>&1; then
+    REALITY_KEYS=$(/usr/local/bin/xray x25519 2>/dev/null || xray x25519 2>/dev/null)
+    if [ -n "$REALITY_KEYS" ]; then
+        REALITY_PRIVATE=$(echo "${REALITY_KEYS}" | grep "Private key:" | awk '{print $3}')
+        REALITY_PUBLIC=$(echo "${REALITY_KEYS}" | grep "Public key:" | awk '{print $3}')
+        log_and_show "✅ REALITY keys generated successfully"
+    else
+        log_and_show "⚠️ REALITY key generation failed, using fallback"
+        REALITY_PRIVATE="dummy_private_key_$(openssl rand -hex 16)"
+        REALITY_PUBLIC="dummy_public_key_$(openssl rand -hex 16)"
+    fi
+else
+    log_and_show "⚠️ Xray not available for REALITY key generation, using fallback"
+    REALITY_PRIVATE="dummy_private_key_$(openssl rand -hex 16)"
+    REALITY_PUBLIC="dummy_public_key_$(openssl rand -hex 16)"
+fi
 
 # Generate UUID for default user
 uuid=$(cat /proc/sys/kernel/random/uuid)

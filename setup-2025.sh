@@ -168,7 +168,24 @@ log_and_show "🚀 Starting component installation in sequence..."
 log_section "STEP 1: TOOLS INSTALLATION"
 log_and_show "🛠️  Installing system tools and dependencies..."
 
-if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/tools-2025.sh"; then
+download_success=false
+for i in {1..3}; do
+    if log_command "wget -q --timeout=30 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/tools-2025.sh"; then
+        download_success=true
+        break
+    else
+        log_and_show "⚠️ wget download failed (attempt $i/3), trying curl..."
+        if log_command "curl -L -o tools-2025.sh --connect-timeout 30 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/tools-2025.sh"; then
+            download_success=true
+            break
+        else
+            log_and_show "⚠️ curl download failed (attempt $i/3), retrying..."
+            sleep 5
+        fi
+    fi
+done
+
+if $download_success && [ -f tools-2025.sh ]; then
     log_command "chmod +x tools-2025.sh"
     log_command "sed -i -e 's/\r$//' tools-2025.sh"
     
@@ -185,7 +202,7 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
         echo "TOOLS-2025: FAILED" >> /root/log-install.txt
     fi
 else
-    log_and_show "⚠️ Failed to download tools-2025.sh, but continuing..."
+    log_and_show "⚠️ Failed to download tools-2025.sh after multiple attempts, but continuing..."
     echo "TOOLS-2025: DOWNLOAD FAILED" >> /root/log-install.txt
 fi
 
@@ -193,7 +210,24 @@ fi
 log_section "STEP 2: SSH/VPN INSTALLATION"
 log_and_show "🔐 Installing SSH, Dropbear, OpenVPN services..."
 
-if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh-2025.sh"; then
+download_success=false
+for i in {1..3}; do
+    if log_command "wget -q --timeout=30 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh-2025.sh"; then
+        download_success=true
+        break
+    else
+        log_and_show "⚠️ wget download failed (attempt $i/3), trying curl..."
+        if log_command "curl -L -o ssh-2025.sh --connect-timeout 30 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh-2025.sh"; then
+            download_success=true
+            break
+        else
+            log_and_show "⚠️ curl download failed (attempt $i/3), retrying..."
+            sleep 5
+        fi
+    fi
+done
+
+if $download_success && [ -f ssh-2025.sh ]; then
     log_command "chmod +x ssh-2025.sh"
     log_command "sed -i -e 's/\r$//' ssh-2025.sh"
     
@@ -205,7 +239,7 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
         echo "SSH-2025: FAILED" >> /root/log-install.txt
     fi
 else
-    log_and_show "⚠️ Failed to download ssh-2025.sh, but continuing..."
+    log_and_show "⚠️ Failed to download ssh-2025.sh after multiple attempts, but continuing..."
     echo "SSH-2025: DOWNLOAD FAILED" >> /root/log-install.txt
 fi
 
@@ -213,7 +247,24 @@ fi
 log_section "STEP 3: WEBSOCKET INSTALLATION"
 log_and_show "🌐 Installing WebSocket tunneling services..."
 
-if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/sshws-2025.sh"; then
+download_success=false
+for i in {1..3}; do
+    if log_command "wget -q --timeout=30 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/sshws-2025.sh"; then
+        download_success=true
+        break
+    else
+        log_and_show "⚠️ wget download failed (attempt $i/3), trying curl..."
+        if log_command "curl -L -o sshws-2025.sh --connect-timeout 30 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/sshws-2025.sh"; then
+            download_success=true
+            break
+        else
+            log_and_show "⚠️ curl download failed (attempt $i/3), retrying..."
+            sleep 5
+        fi
+    fi
+done
+
+if $download_success && [ -f sshws-2025.sh ]; then
     log_command "chmod +x sshws-2025.sh"
     log_command "sed -i -e 's/\r$//' sshws-2025.sh"
     
@@ -225,7 +276,7 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
         echo "SSHWS-2025: FAILED" >> /root/log-install.txt
     fi
 else
-    log_and_show "⚠️ Failed to download sshws-2025.sh, but continuing..."
+    log_and_show "⚠️ Failed to download sshws-2025.sh after multiple attempts, but continuing..."
     echo "SSHWS-2025: DOWNLOAD FAILED" >> /root/log-install.txt
 fi
 
@@ -233,7 +284,24 @@ fi
 log_section "STEP 4: XRAY INSTALLATION"
 log_and_show "⚡ Installing Xray with modern protocols (REALITY, XHTTP)..."
 
-if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray-2025.sh"; then
+download_success=false
+for i in {1..3}; do
+    if log_command "wget -q --timeout=30 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray-2025.sh"; then
+        download_success=true
+        break
+    else
+        log_and_show "⚠️ wget download failed (attempt $i/3), trying curl..."
+        if log_command "curl -L -o xray-2025.sh --connect-timeout 30 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray-2025.sh"; then
+            download_success=true
+            break
+        else
+            log_and_show "⚠️ curl download failed (attempt $i/3), retrying..."
+            sleep 5
+        fi
+    fi
+done
+
+if $download_success && [ -f xray-2025.sh ]; then
     log_command "chmod +x xray-2025.sh"
     log_command "sed -i -e 's/\r$//' xray-2025.sh"
     
@@ -245,7 +313,7 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
         echo "XRAY-2025: FAILED" >> /root/log-install.txt
     fi
 else
-    log_and_show "⚠️ Failed to download xray-2025.sh, but continuing..."
+    log_and_show "⚠️ Failed to download xray-2025.sh after multiple attempts, but continuing..."
     echo "XRAY-2025: DOWNLOAD FAILED" >> /root/log-install.txt
 fi
 

@@ -55,12 +55,12 @@ log_command "chmod +x /etc/rc.local"
 log_command "systemctl enable rc-local"
 log_command "systemctl start rc-local.service"
 
-# Setup password security
+# Setup password security with error handling
 log_and_show "🔐 Setting up password security..."
-if log_command "curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/password | openssl aes-256-cbc -d -a -pass pass:scvps07gg -pbkdf2 > /etc/pam.d/common-password"; then
+if curl -sS --connect-timeout 10 https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/password 2>/dev/null | openssl aes-256-cbc -d -a -pass pass:scvps07gg -pbkdf2 > /etc/pam.d/common-password 2>/dev/null; then
     log_and_show "✅ Password security configured"
 else
-    log_and_show "⚠️ Password security setup failed"
+    log_and_show "⚠️ Password security setup failed, keeping default configuration"
 fi
 
 # System updates and cleanup
@@ -98,8 +98,15 @@ sed -i '/Port 22/a Port 58080' /etc/ssh/sshd_config
 sed -i '/Port 22/a Port 200' /etc/ssh/sshd_config
 sed -i '/Port 22/a Port 22' /etc/ssh/sshd_config
 
-# Configure Dropbear (using dropbear from tools-2025.sh)
+# Configure Dropbear with improved error handling
 log_and_show "⚙️  Configuring Dropbear..."
+
+# Check if dropbear is installed
+if ! command -v dropbear >/dev/null 2>&1; then
+    log_and_show "⚠️ Dropbear not found, installing..."
+    log_command "apt install -y dropbear" || log_and_show "⚠️ Dropbear installation failed"
+fi
+
 # Ensure dropbear config file exists
 if [ ! -f /etc/default/dropbear ]; then
     log_and_show "⚠️ Creating dropbear default config..."
@@ -165,7 +172,7 @@ accept = 442
 connect = 127.0.0.1:1194
 EOF
 
-# Generate SSL certificate (matching ssh-vpn.sh exactly)
+# Generate SSL certificate with improved error handling
 log_and_show "📜 Generating SSL certificate..."
 
 # Create stunnel directory if not exists
@@ -180,38 +187,93 @@ organizationalunit=Zixstyle.my.id
 commonname=WarungAwan
 email=doyoulikepussy@zixstyle.co.id
 
-# Generate key and certificate files (matching ssh-vpn.sh exactly)
+# Generate key and certificate files with error handling
 cd /etc/stunnel
-openssl genrsa -out key.pem 2048 2>/dev/null
-openssl req -new -x509 -key key.pem -out cert.pem -days 1095 \
--subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email" 2>/dev/null
-cat key.pem cert.pem >> /etc/stunnel/stunnel.pem
+if openssl genrsa -out key.pem 2048 2>/dev/null; then
+    if openssl req -new -x509 -key key.pem -out cert.pem -days 1095 \
+    -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email" 2>/dev/null; then
+        cat key.pem cert.pem >> /etc/stunnel/stunnel.pem
+        log_and_show "✅ SSL certificate generated successfully"
+    else
+        log_and_show "⚠️ SSL certificate creation failed"
+    fi
+else
+    log_and_show "⚠️ SSL key generation failed"
+fi
 
 # Set proper permissions
-chmod 600 /etc/stunnel/stunnel.pem
-chmod 600 /etc/stunnel/key.pem
-chmod 644 /etc/stunnel/cert.pem
+chmod 600 /etc/stunnel/stunnel.pem 2>/dev/null || true
+chmod 600 /etc/stunnel/key.pem 2>/dev/null || true
+chmod 644 /etc/stunnel/cert.pem 2>/dev/null || true
 
 # Ensure stunnel user exists and set ownership
 if ! id stunnel4 >/dev/null 2>&1; then
-    useradd -r -s /bin/false stunnel4 2>/dev/null || true
+    useradd -r -s /bin/false stunnel4 2>/dev/null || log_and_show "⚠️ stunnel4 user creation failed"
 fi
-chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem 2>/dev/null || true
+chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem 2>/dev/null || log_and_show "⚠️ stunnel ownership setup failed"
+
+# Fix stunnel4 systemd service configuration  
+log_and_show "🔧 Configuring stunnel4 systemd service..."
+if [[ ! -f /etc/systemd/system/stunnel4.service ]]; then
+    log_and_show "📝 Creating stunnel4 systemd service..."
+    cat > /etc/systemd/system/stunnel4.service << 'EOF'
+[Unit]
+Description=SSL tunnel for network daemons
+Documentation=man:stunnel4(8)
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/stunnel4 /etc/stunnel/stunnel.conf
+PIDFile=/var/run/stunnel4/stunnel4.pid
+ExecStartPre=/bin/mkdir -p /var/run/stunnel4
+ExecStartPre=/bin/chown stunnel4:stunnel4 /var/run/stunnel4
+Restart=on-failure
+RestartSec=5
+User=stunnel4
+Group=stunnel4
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    log_and_show "✅ stunnel4 systemd service created"
+fi
+
+# Test stunnel configuration before starting
+if stunnel4 -test /etc/stunnel/stunnel.conf 2>/dev/null; then
+    log_and_show "✅ stunnel4 configuration is valid"
+else
+    log_and_show "⚠️ stunnel4 configuration test failed, adding PID file configuration..."
+    # Add PID file to config if missing
+    if ! grep -q "pid.*=" /etc/stunnel/stunnel.conf; then
+        sed -i '1i pid = /var/run/stunnel4/stunnel4.pid' /etc/stunnel/stunnel.conf
+        log_and_show "✅ Added PID file configuration to stunnel4.conf"
+    fi
+fi
 
 # Set Stunnel configuration (matching ssh-vpn.sh exactly)
 log_and_show "🔒 Enabling and starting stunnel4..."
-sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
+sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4 2>/dev/null || true
 systemctl enable stunnel4 2>/dev/null || true
+
 if systemctl restart stunnel4 2>/dev/null; then
     log_and_show "✅ stunnel4 started successfully"
+    # Verify service is running
+    sleep 2
+    if systemctl is-active --quiet stunnel4; then
+        log_and_show "✅ stunnel4 service confirmed active"
+    else
+        log_and_show "⚠️ stunnel4 service not fully active"
+    fi
 elif /etc/init.d/stunnel4 restart 2>/dev/null; then
     log_and_show "✅ stunnel4 started via init.d"
 else
+    log_and_show "⚠️ stunnel4 restart failed, checking configuration..."
+    # Try to identify the problem
+    systemctl status stunnel4 --no-pager || true
     log_and_show "⚠️ stunnel4 service may need manual restart after system reboot"
-fi
-    log_and_show "⚠️ stunnel4 restart failed, trying systemctl..."
-    systemctl enable stunnel4 2>/dev/null || true
-    systemctl restart stunnel4 2>/dev/null || true
 fi
 
 # Configure Nginx (nginx will be installed in sshws-2025.sh)

@@ -169,6 +169,86 @@ server {
 }
 EOF
 
+# Enable default site
+log_command "ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/"
+
+# Nginx configuration validation and startup
+log_and_show "🔍 Testing nginx configuration..."
+if nginx -t 2>/dev/null; then
+    log_and_show "✅ Nginx configuration is valid"
+else
+    log_and_show "❌ Nginx configuration error, using minimal config..."
+    
+    # Backup current config and create minimal working config
+    cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup 2>/dev/null || true
+    cat > /etc/nginx/nginx.conf << 'EOF'
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    keepalive_timeout 65;
+    
+    # Basic logging
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+    
+    server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+        
+        location / {
+            return 200 "WebSocket Server Running";
+            add_header Content-Type text/plain;
+        }
+        
+        location /ws-dropbear {
+            proxy_pass http://127.0.0.1:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $http_host;
+        }
+        
+        location /ws-stunnel {
+            proxy_pass http://127.0.0.1:8880;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $http_host;
+        }
+    }
+}
+EOF
+    
+    # Remove conflicting default sites
+    rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+    rm -f /etc/nginx/sites-available/default 2>/dev/null || true
+    
+    # Test minimal config
+    if nginx -t 2>/dev/null; then
+        log_and_show "✅ Minimal nginx configuration is valid"
+    else
+        log_and_show "❌ Even minimal nginx config failed, creating ultra-minimal config"
+        cat > /etc/nginx/nginx.conf << 'EOF'
+events {}
+http {
+    server {
+        listen 80;
+        location / { return 200 "OK"; }
+    }
+}
+EOF
+    fi
+fi
+
 # Enable and start services
 log_and_show "🚀 Starting WebSocket services..."
 log_command "systemctl daemon-reload"
@@ -176,7 +256,25 @@ log_command "systemctl enable ws-dropbear"
 log_command "systemctl enable ws-stunnel"
 log_command "systemctl start ws-dropbear"
 log_command "systemctl start ws-stunnel"
-log_command "systemctl restart nginx"
+
+# Start nginx with detailed error checking
+log_and_show "🌐 Starting nginx service..."
+if systemctl restart nginx 2>/dev/null; then
+    log_and_show "✅ Nginx service started successfully"
+else
+    log_and_show "⚠️ Nginx restart failed, checking status..."
+    systemctl status nginx --no-pager || true
+    
+    # Try to start nginx without restart
+    if systemctl start nginx 2>/dev/null; then
+        log_and_show "✅ Nginx service started"
+    else
+        log_and_show "⚠️ Nginx service may need manual configuration"
+        # Try to identify the problem
+        nginx -t || log_and_show "❌ Nginx configuration test failed"
+    fi
+fi
+
 log_command "systemctl enable nginx"
 
 # Verify services are running

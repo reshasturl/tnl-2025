@@ -50,28 +50,54 @@ log_command "apt-get remove --purge exim4 -y"
 
 # Install comprehensive package list (based on tools.sh - updated for Ubuntu 24.04)
 log_and_show "📦 Installing comprehensive package list..."
-log_command "apt install -y screen curl jq bzip2 gzip coreutils rsyslog iftop \
- htop zip unzip net-tools sed gnupg gnupg1 \
- bc apt-transport-https build-essential dirmngr libxml-parser-perl neofetch screenfetch git lsof \
- openssl openvpn easy-rsa fail2ban tmux \
- stunnel4 vnstat squid \
- dropbear libsqlite3-dev \
- socat cron bash-completion ntpdate xz-utils \
- gnupg2 dnsutils lsb-release chrony"
+# Install packages in smaller groups to avoid conflicts
+log_command "apt install -y screen curl jq bzip2 gzip coreutils rsyslog iftop htop zip unzip"
+log_command "apt install -y net-tools sed gnupg gnupg1 bc apt-transport-https build-essential"
+log_command "apt install -y dirmngr libxml-parser-perl neofetch screenfetch git lsof openssl"
+log_command "apt install -y openvpn easy-rsa fail2ban tmux stunnel4 squid dropbear"
+log_command "apt install -y libsqlite3-dev socat cron bash-completion xz-utils gnupg2"
+log_command "apt install -y dnsutils lsb-release"
 
-# VPN Development Libraries (updated for Ubuntu 24.04 - removed pptpd, fixed libcurl4)
+# Install chrony with fallback to systemd-timesyncd
+log_and_show "⏰ Installing time synchronization service..."
+if ! log_command "apt install -y chrony"; then
+    log_and_show "⚠️ chrony installation failed, using systemd-timesyncd as fallback"
+    log_command "systemctl enable systemd-timesyncd"
+    log_command "systemctl start systemd-timesyncd"
+fi
+
+# VPN Development Libraries (updated for Ubuntu 24.04 - improved libcurl handling)
 log_and_show "🔧 Installing VPN development libraries..."
-log_command "apt install -y libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev libcap-ng-utils libselinux1-dev libcurl4-openssl-dev flex bison make libnss3-tools libevent-dev xl2tpd"
+log_command "apt install -y libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev"
+log_command "apt install -y libcap-ng-utils libselinux1-dev flex bison make libnss3-tools"
+log_command "apt install -y libevent-dev xl2tpd"
+
+# Handle libcurl4 installation with conflict resolution
+log_and_show "📦 Installing libcurl4 with conflict resolution..."
+if ! log_command "apt install -y libcurl4-openssl-dev"; then
+    log_and_show "⚠️ libcurl4-openssl-dev conflict detected, trying alternative..."
+    log_command "apt remove -y libcurl4-gnutls-dev" || true
+    log_command "apt install -y libcurl4-openssl-dev" || log_and_show "⚠️ libcurl4 installation failed"
+fi
 
 # Network utilities and monitoring
 log_and_show "🌐 Installing network utilities..."
 log_command "apt install -y speedtest-cli dnsutils netcat-openbsd iperf3 mtr-tiny tcpdump"
 log_command "apt install -y iptables iptables-persistent netfilter-persistent"
 
-# Install Node.js 20 LTS (updated from deprecated 16.x)
+# Install Node.js 20 LTS (updated from deprecated 16.x with error handling)
 log_and_show "🟢 Installing Node.js 20 LTS..."
-log_command "curl -sSL https://deb.nodesource.com/setup_20.x | bash -"
-log_command "apt-get install nodejs -y"
+if ! log_command "curl -sSL https://deb.nodesource.com/setup_20.x | bash -"; then
+    log_and_show "⚠️ NodeSource repository setup failed, trying snap installation..."
+    if command -v snap >/dev/null; then
+        log_command "snap install node --classic" || log_and_show "⚠️ Node.js installation failed"
+    else
+        log_and_show "⚠️ Installing nodejs from Ubuntu repository as fallback..."
+        log_command "apt install -y nodejs npm" || log_and_show "⚠️ Node.js fallback installation failed"
+    fi
+else
+    log_command "apt-get install nodejs -y" || log_and_show "⚠️ Node.js installation failed"
+fi
 
 # Python environment
 log_and_show "🐍 Setting up Python environment..."
@@ -84,35 +110,72 @@ fi
 # Install vnstat from source (Enhanced version 2.9 with hardened service)
 log_and_show "📊 Installing vnstat 2.9 from source with enhanced security..."
 cd /tmp
-log_command "wget -q https://humdi.net/vnstat/vnstat-2.9.tar.gz"
-if [[ -f vnstat-2.9.tar.gz ]]; then
-    log_command "tar zxvf vnstat-2.9.tar.gz"
-    cd vnstat-2.9
-    log_command "./configure --prefix=/usr --sysconfdir=/etc >/dev/null 2>&1 && make >/dev/null 2>&1 && make install >/dev/null 2>&1"
-    cd /
-    log_command "rm -f /tmp/vnstat-2.9.tar.gz >/dev/null 2>&1"
-    log_command "rm -rf /tmp/vnstat-2.9 >/dev/null 2>&1"
-    log_and_show "✅ vnstat 2.9 installed from source"
+if log_command "wget -q https://humdi.net/vnstat/vnstat-2.9.tar.gz"; then
+    if [[ -f vnstat-2.9.tar.gz ]]; then
+        log_command "tar zxvf vnstat-2.9.tar.gz"
+        cd vnstat-2.9
+        if log_command "./configure --prefix=/usr --sysconfdir=/etc"; then
+            if log_command "make"; then
+                if log_command "make install"; then
+                    log_and_show "✅ vnstat 2.9 compiled and installed from source"
+                else
+                    log_and_show "⚠️ vnstat make install failed, using apt version as fallback"
+                    cd /
+                    log_command "apt install -y vnstat" || log_and_show "⚠️ vnstat fallback installation failed"
+                fi
+            else
+                log_and_show "⚠️ vnstat compilation failed, using apt version as fallback"
+                cd /
+                log_command "apt install -y vnstat" || log_and_show "⚠️ vnstat fallback installation failed"
+            fi
+        else
+            log_and_show "⚠️ vnstat configure failed, using apt version as fallback"
+            cd /
+            log_command "apt install -y vnstat" || log_and_show "⚠️ vnstat fallback installation failed"
+        fi
+        cd /
+        log_command "rm -f /tmp/vnstat-2.9.tar.gz"
+        log_command "rm -rf /tmp/vnstat-2.9"
+    fi
+else
+    log_and_show "⚠️ vnstat source download failed, using apt version as fallback"
+    log_command "apt install -y vnstat" || log_and_show "⚠️ vnstat fallback installation failed"
 fi
 
 # Configure vnstat with enhanced security
 log_and_show "⚙️ Configuring vnstat with enhanced security..."
-# Create vnstat database with correct parameter for different versions
-if vnstat --help 2>/dev/null | grep -q "\--add"; then
-    log_command "vnstat -i $NET --add" || log_and_show "⚠️ vnstat database may already exist"
-elif vnstat --help 2>/dev/null | grep -q "\--create"; then
-    log_command "vnstat --create -i $NET" || log_and_show "⚠️ vnstat database may already exist"
-elif vnstat --help 2>/dev/null | grep -q "\-u"; then
-    log_command "vnstat -u -i $NET" || log_and_show "⚠️ vnstat database may already exist"
-else
-    # Fallback: Try basic vnstat initialization without parameters
-    log_and_show "⚠️ Using fallback vnstat initialization..."
-    vnstat -i $NET 2>/dev/null || true
-    systemctl enable vnstat 2>/dev/null || true
+
+# Ensure vnstat user exists
+if ! id vnstat >/dev/null 2>&1; then
+    log_command "useradd --system --no-create-home --shell /bin/false vnstat" || true
 fi
-# Fix vnstat.conf interface configuration
-log_command "sed -i 's/Interface \"eth0\"/Interface \"$NET\"/g' /etc/vnstat.conf"
-log_command "chown vnstat:vnstat /var/lib/vnstat -R"
+
+# Create vnstat database with correct parameter for different versions
+if command -v vnstat >/dev/null 2>&1; then
+    if vnstat --help 2>/dev/null | grep -q "\--add"; then
+        log_command "vnstat -i $NET --add" || log_and_show "⚠️ vnstat database may already exist"
+    elif vnstat --help 2>/dev/null | grep -q "\--create"; then
+        log_command "vnstat --create -i $NET" || log_and_show "⚠️ vnstat database may already exist"
+    elif vnstat --help 2>/dev/null | grep -q "\-u"; then
+        log_command "vnstat -u -i $NET" || log_and_show "⚠️ vnstat database may already exist"
+    else
+        # Fallback: Try basic vnstat initialization without parameters
+        log_and_show "⚠️ Using fallback vnstat initialization..."
+        vnstat -i $NET 2>/dev/null || true
+        systemctl enable vnstat 2>/dev/null || true
+    fi
+    
+    # Fix vnstat.conf interface configuration if file exists
+    if [[ -f /etc/vnstat.conf ]]; then
+        log_command "sed -i 's/Interface \"eth0\"/Interface \"$NET\"/g' /etc/vnstat.conf"
+    fi
+    
+    # Set proper permissions
+    log_command "mkdir -p /var/lib/vnstat"
+    log_command "chown vnstat:vnstat /var/lib/vnstat -R" || true
+else
+    log_and_show "⚠️ vnstat command not found, skipping configuration"
+fi
 
 # Create hardened vnstat systemd service
 log_and_show "🔒 Creating hardened vnstat systemd service..."
@@ -156,9 +219,58 @@ EOF
 
 log_command "systemctl daemon-reload"
 log_command "systemctl enable vnstat"
-# Try to start vnstat service, but don't fail if it doesn't work
-if ! systemctl start vnstat; then
-    log_and_show "⚠️ vnstat service may need manual restart after system reboot"
+
+# Fix vnstat database initialization and service startup
+log_and_show "📊 Initializing vnstat database and starting service..."
+if command -v vnstat >/dev/null 2>&1; then
+    # Ensure database directory exists
+    mkdir -p /var/lib/vnstat
+    chown -R vnstat:vnstat /var/lib/vnstat 2>/dev/null || true
+    
+    # Create database for primary interface if not exists
+    if [[ ! -f /var/lib/vnstat/.$NET ]] && [[ ! -f /var/lib/vnstat/.${NET} ]]; then
+        log_and_show "📊 Creating vnstat database for interface $NET..."
+        # Try different vnstat database creation methods based on version
+        if vnstat --help 2>/dev/null | grep -q "\--create"; then
+            vnstat --create -i $NET 2>/dev/null || log_and_show "⚠️ vnstat --create failed"
+        elif vnstat --help 2>/dev/null | grep -q "\--add"; then
+            vnstat -i $NET --add 2>/dev/null || log_and_show "⚠️ vnstat --add failed"
+        elif vnstat --help 2>/dev/null | grep -q "\-u"; then
+            vnstat -u -i $NET 2>/dev/null || log_and_show "⚠️ vnstat -u failed"
+        else
+            # Fallback: just run vnstat to create basic database
+            vnstat -i $NET 2>/dev/null || log_and_show "⚠️ vnstat basic initialization failed"
+        fi
+        sleep 2
+    else
+        log_and_show "✅ vnstat database already exists for $NET"
+    fi
+    
+    # Set correct ownership after database creation
+    chown -R vnstat:vnstat /var/lib/vnstat 2>/dev/null || true
+    chmod 755 /var/lib/vnstat 2>/dev/null || true
+    
+    # Start vnstat service with proper error handling
+    if systemctl start vnstat 2>/dev/null; then
+        log_and_show "✅ vnstat service started successfully"
+        # Verify service is actually running
+        sleep 2
+        if systemctl is-active --quiet vnstat; then
+            log_and_show "✅ vnstat service confirmed active"
+        else
+            log_and_show "⚠️ vnstat service not active, will retry after reboot"
+        fi
+    else
+        log_and_show "⚠️ vnstat service startup failed, trying restart..."
+        if systemctl restart vnstat 2>/dev/null; then
+            log_and_show "✅ vnstat service restarted successfully"
+        else
+            log_and_show "⚠️ vnstat will be available after next system reboot"
+            systemctl enable vnstat 2>/dev/null || true
+        fi
+    fi
+else
+    log_and_show "⚠️ vnstat command not available, skipping service startup"
 fi
 log_and_show "✅ vnstat configured with hardened systemd service"
 
@@ -180,7 +292,7 @@ ignoreregex =
 EOF
 
 # Create nginx-specific jail configuration  
-log_and_show "� Creating nginx-specific fail2ban jail..."
+log_and_show "🔒 Creating nginx-specific fail2ban jail..."
 mkdir -p /etc/fail2ban/jail.d
 cat > /etc/fail2ban/jail.d/fail2ban-nginx.conf << 'EOF'
 [nginx-http-auth]

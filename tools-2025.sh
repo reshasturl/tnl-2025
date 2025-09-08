@@ -172,8 +172,24 @@ fi
 else
     log_and_show "⚠️ stunnel4 command not found after installation"
 fi
-log_command "apt install -y libsqlite3-dev socat cron bash-completion xz-utils gnupg2"
-log_command "apt install -y dnsutils lsb-release vnstat"
+# Comprehensive package installation with enhanced error handling
+log_and_show "📦 Installing comprehensive package list with error recovery..."
+
+# Critical packages first
+if ! log_command "apt install -y libsqlite3-dev socat cron bash-completion xz-utils gnupg2"; then
+    log_and_show "⚠️ Some critical packages failed, trying individually..."
+    for pkg in libsqlite3-dev socat cron bash-completion xz-utils gnupg2; do
+        log_command "apt install -y $pkg" || log_and_show "⚠️ Failed to install $pkg"
+    done
+fi
+
+# Network and monitoring tools
+if ! log_command "apt install -y dnsutils lsb-release vnstat"; then
+    log_and_show "⚠️ Network tools installation failed, trying alternatives..."
+    log_command "apt install -y bind9-dnsutils" || log_command "apt install -y dnsutils" || true
+    log_command "apt install -y lsb-release" || true
+    log_command "apt install -y vnstat" || log_and_show "⚠️ vnstat will be compiled from source later"
+fi
 
 # Install chrony with fallback to systemd-timesyncd
 log_and_show "⏰ Installing time synchronization service..."
@@ -183,18 +199,50 @@ if ! log_command "apt install -y chrony"; then
     log_command "systemctl start systemd-timesyncd"
 fi
 
-# VPN Development Libraries (updated for Ubuntu 24.04 - improved libcurl handling)
-log_and_show "🔧 Installing VPN development libraries..."
-log_command "apt install -y libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev"
-log_command "apt install -y libcap-ng-utils libselinux1-dev flex bison make libnss3-tools"
-log_command "apt install -y libevent-dev xl2tpd"
+# VPN Development Libraries (enhanced error handling for Ubuntu 24.04)
+log_and_show "🔧 Installing VPN development libraries with conflict resolution..."
 
-# Handle libcurl4 installation with conflict resolution
-log_and_show "📦 Installing libcurl4 with conflict resolution..."
+# Install basic development packages first
+if ! log_command "apt install -y libnss3-dev libnspr4-dev pkg-config"; then
+    log_and_show "⚠️ Basic dev packages failed, trying individually..."
+    log_command "apt install -y libnss3-dev" || true
+    log_command "apt install -y libnspr4-dev" || true
+    log_command "apt install -y pkg-config" || true
+fi
+
+# PAM and capability packages
+if ! log_command "apt install -y libpam0g-dev libcap-ng-dev libcap-ng-utils"; then
+    log_and_show "⚠️ PAM/capability packages failed, trying individually..."
+    log_command "apt install -y libpam0g-dev" || true
+    log_command "apt install -y libcap-ng-dev" || true
+    log_command "apt install -y libcap-ng-utils" || true
+fi
+
+# SELinux and build tools
+if ! log_command "apt install -y libselinux1-dev flex bison make libnss3-tools"; then
+    log_and_show "⚠️ Build tools failed, trying individually..."
+    log_command "apt install -y libselinux1-dev" || true
+    log_command "apt install -y flex bison make" || true
+    log_command "apt install -y libnss3-tools" || true
+fi
+
+# Event and L2TP libraries
+log_command "apt install -y libevent-dev xl2tpd" || log_and_show "⚠️ Event/L2TP libraries installation failed"
+
+# Handle libcurl4 installation with comprehensive conflict resolution
+log_and_show "📦 Installing libcurl4 with enhanced conflict resolution..."
 if ! log_command "apt install -y libcurl4-openssl-dev"; then
-    log_and_show "⚠️ libcurl4-openssl-dev conflict detected, trying alternative..."
+    log_and_show "⚠️ libcurl4-openssl-dev conflict detected, resolving..."
+    
+    # Remove conflicting packages
     log_command "apt remove -y libcurl4-gnutls-dev" || true
-    log_command "apt install -y libcurl4-openssl-dev" || log_and_show "⚠️ libcurl4 installation failed"
+    log_command "apt autoremove -y" || true
+    
+    # Try again
+    if ! log_command "apt install -y libcurl4-openssl-dev"; then
+        log_and_show "⚠️ Using alternative curl installation method..."
+        log_command "apt install -y curl libcurl4" || true
+    fi
 fi
 
 # Network utilities and monitoring

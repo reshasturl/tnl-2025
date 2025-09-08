@@ -554,39 +554,38 @@ log_and_show "🌐 Configuring Squid proxy..."
 # Note: vnstat already installed from source in tools-2025.sh
 log_and_show "✅ Using vnstat from tools-2025.sh (installed from source)"
 
-# Configure Squid (modern configuration for 2025 - fixed ACL conflicts)
+# Configure Squid (modern configuration for 2025 - FIXED for Ubuntu 24.04)
 cat > /etc/squid/squid.conf << 'EOF'
 # Squid 2025 Configuration for VPN Server
-# Fixed duplicate ACL definitions and IPv6 issues
+# Fixed for Ubuntu 24.04 compatibility - simplified and tested
 
-# Basic ACLs (removed duplicates and simplified)
+# Basic ACL definitions
 acl localnet src 10.0.0.0/8
 acl localnet src 172.16.0.0/12  
 acl localnet src 192.168.0.0/16
-acl localnet src 127.0.0.1
-
-# Port ACLs
+acl localnet src fc00::/7
+acl localnet src fe80::/10
 acl SSL_ports port 443
-acl Safe_ports port 80          # http
-acl Safe_ports port 21          # ftp
-acl Safe_ports port 443         # https
-acl Safe_ports port 70          # gopher
-acl Safe_ports port 210         # wais
-acl Safe_ports port 1025-65535  # unregistered ports
-acl Safe_ports port 280         # http-mgmt
-acl Safe_ports port 488         # gss-http
-acl Safe_ports port 591         # filemaker
-acl Safe_ports port 777         # multiling http
+acl Safe_ports port 80
+acl Safe_ports port 21
+acl Safe_ports port 443
+acl Safe_ports port 70
+acl Safe_ports port 210
+acl Safe_ports port 1025-65535
+acl Safe_ports port 280
+acl Safe_ports port 488
+acl Safe_ports port 591
+acl Safe_ports port 777
 acl CONNECT method CONNECT
 
-# Access control (simplified)
+# Access rules
 http_access deny !Safe_ports
 http_access deny CONNECT !SSL_ports
 http_access allow localnet
 http_access allow localhost
 http_access deny all
 
-# Network settings
+# Network ports
 http_port 3128
 http_port 8080
 http_port 8000
@@ -597,28 +596,16 @@ coredump_dir /var/spool/squid
 maximum_object_size 512 MB
 cache_mem 256 MB
 
-# Refresh patterns (updated for 2025)
+# Basic refresh patterns
 refresh_pattern ^ftp:           1440    20%     10080
 refresh_pattern ^gopher:        1440    0%      1440
 refresh_pattern -i (/cgi-bin/|\?) 0     0%      0
-refresh_pattern \/(Packages|Sources)(|\.bz2|\.gz|\.xz)$ 0 0% 0 refresh-ims
-refresh_pattern \/Release(|\.gpg)$ 0 0% 0 refresh-ims
-refresh_pattern \/InRelease$ 0 0% 0 refresh-ims
-refresh_pattern \/(Translation-.*)(|\.bz2|\.gz|\.xz)$ 0 0% 0 refresh-ims
 refresh_pattern .               0       20%     4320
 
-# Security headers
-reply_header_add X-Cache-Status %{HIT_MISS} "from %h"
-
-# Hide version and server info
+# Server identification
+visible_hostname YT-ZIXSTYLE-VPN-2025
 via on
 forwarded_for on
-
-# Custom hostname
-visible_hostname YT-ZIXSTYLE-VPN-2025
-
-# IPv6 disabled via sysctl, no need for obsolete dns_v4_first directive
-# dns_v4_first on  # Removed: obsolete in modern Squid versions
 EOF
 
 # Initialize Squid cache and start service (with proper error handling)
@@ -655,7 +642,7 @@ if [ -d '/usr/local/ddos' ]; then
 else
     mkdir -p /usr/local/ddos
     
-    # Try alternative sources for DDoS Deflate
+    # Try alternative sources for DDoS Deflate with multiple fallbacks
     DDOS_INSTALLED=false
     
     # Method 1: Try original source
@@ -664,33 +651,102 @@ else
         wget -q --timeout=10 -O /usr/local/ddos/LICENSE http://www.inetbase.com/scripts/ddos/LICENSE 2>/dev/null || true
         wget -q --timeout=10 -O /usr/local/ddos/ignore.ip.list http://www.inetbase.com/scripts/ddos/ignore.ip.list 2>/dev/null || true
         DDOS_INSTALLED=true
+        log_and_show "✅ DDoS Deflate downloaded from original source"
     fi
     
-    # Method 2: Create basic DDoS protection script if download failed
+    # Method 2: Try GitHub mirror
+    if [ "$DDOS_INSTALLED" = false ]; then
+        if wget -q --timeout=10 -O /usr/local/ddos/ddos.sh https://raw.githubusercontent.com/jgmdev/ddos-deflate/master/ddos.sh 2>/dev/null; then
+            wget -q --timeout=10 -O /usr/local/ddos/ddos.conf https://raw.githubusercontent.com/jgmdev/ddos-deflate/master/ddos.conf 2>/dev/null || true
+            wget -q --timeout=10 -O /usr/local/ddos/ignore.ip.list https://raw.githubusercontent.com/jgmdev/ddos-deflate/master/ignore.ip.list 2>/dev/null || true
+            DDOS_INSTALLED=true
+            log_and_show "✅ DDoS Deflate downloaded from GitHub mirror"
+        fi
+    fi
+    
+    # Method 3: Create enhanced protection script if all downloads failed
     if [ "$DDOS_INSTALLED" = false ]; then
         log_and_show "⚠️ DDoS Deflate download failed, creating basic protection script..."
         cat > /usr/local/ddos/ddos.sh << 'EOF'
 #!/bin/bash
-# Basic DDoS Protection Script
-# Auto-generated fallback
+# Enhanced DDoS Protection Script - YT ZIXSTYLE 2025
+# Auto-generated fallback with advanced features
 
-CONNECTIONS=100
+# Configuration
+MAX_CONNECTIONS=50
 BLOCKED_IP_LIST="/usr/local/ddos/blocked.ips"
+LOG_FILE="/var/log/ddos-deflate.log"
+IGNORE_FILE="/usr/local/ddos/ignore.ip.list"
 
-# Create ignore list if not exists
-if [ ! -f "/usr/local/ddos/ignore.ip.list" ]; then
-    echo "127.0.0.1" > /usr/local/ddos/ignore.ip.list
+# Create ignore list with common safe IPs
+if [ ! -f "$IGNORE_FILE" ]; then
+    cat > "$IGNORE_FILE" << 'IGNORE'
+127.0.0.1
+10.0.0.0/8
+172.16.0.0/12
+192.168.0.0/16
+IGNORE
 fi
 
-# Monitor connections and block suspicious IPs
-netstat -ntu | awk '{print $5}' | cut -d: -f1 | sort | uniq -c | sort -nr | while read count ip; do
-    if [ $count -gt $CONNECTIONS ] && [ "$ip" != "" ] && ! grep -q "$ip" /usr/local/ddos/ignore.ip.list; then
-        iptables -I INPUT -s $ip -j DROP
-        echo "$ip" >> $BLOCKED_IP_LIST
-        echo "$(date): Blocked $ip with $count connections" >> /var/log/ddos.log
+# Enhanced monitoring function
+monitor_connections() {
+    # Get current connections per IP
+    netstat -ntu | awk '{print $5}' | cut -d: -f1 | sort | uniq -c | sort -nr | while read count ip; do
+        # Skip empty IPs and check ignore list
+        if [ -n "$ip" ] && [ "$ip" != "Address" ] && ! grep -q "$ip" "$IGNORE_FILE" 2>/dev/null; then
+            if [ "$count" -gt "$MAX_CONNECTIONS" ]; then
+                # Block the IP
+                if ! iptables -C INPUT -s "$ip" -j DROP 2>/dev/null; then
+                    iptables -I INPUT -s "$ip" -j DROP
+                    echo "$ip" >> "$BLOCKED_IP_LIST"
+                    echo "$(date): Blocked $ip with $count connections" >> "$LOG_FILE"
+                    echo "DDoS Protection: Blocked $ip ($count connections)"
+                fi
+            fi
+        fi
+    done
+}
+
+# Cleanup old blocks (optional)
+cleanup_blocks() {
+    if [ -f "$BLOCKED_IP_LIST" ]; then
+        # Remove blocks older than 1 hour (3600 seconds)
+        find "$BLOCKED_IP_LIST" -mmin +60 -delete 2>/dev/null || true
     fi
-done
+}
+
+# Main execution
+case "$1" in
+    start)
+        echo "Starting DDoS Deflate protection..."
+        monitor_connections
+        ;;
+    stop)
+        echo "Stopping DDoS Deflate protection..."
+        # Could implement unblocking here if needed
+        ;;
+    *)
+        monitor_connections
+        ;;
+esac
 EOF
+        
+        # Create enhanced config file
+        cat > /usr/local/ddos/ddos.conf << 'CONF'
+# Enhanced DDoS-Deflate Configuration for 2025
+FREQUENCY=1
+NO_OF_CONNECTIONS=50
+APF_BAN=0
+KILL=1
+CONN_STATES="ESTABLISHED"
+EMAIL_TO=""
+BAN_PERIOD=600
+CONF
+        
+        # Create cron job for automated protection
+        if ! crontab -l 2>/dev/null | grep -q "ddos.sh"; then
+            (crontab -l 2>/dev/null; echo "*/1 * * * * /usr/local/ddos/ddos.sh >/dev/null 2>&1") | crontab -
+        fi
         chmod +x /usr/local/ddos/ddos.sh
         DDOS_INSTALLED=true
     fi

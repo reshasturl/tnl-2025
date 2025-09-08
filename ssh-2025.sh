@@ -141,6 +141,10 @@ EOF
 
 # Generate SSL certificate (matching ssh-vpn.sh exactly)
 log_and_show "📜 Generating SSL certificate..."
+
+# Create stunnel directory if not exists
+mkdir -p /etc/stunnel
+
 # Get variables for certificate (matching ssh-vpn.sh)
 country=ID
 state=Indonesia
@@ -151,14 +155,24 @@ commonname=WarungAwan
 email=doyoulikepussy@zixstyle.co.id
 
 # Generate key and certificate files (matching ssh-vpn.sh exactly)
+cd /etc/stunnel
 openssl genrsa -out key.pem 2048
 openssl req -new -x509 -key key.pem -out cert.pem -days 1095 \
 -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
 cat key.pem cert.pem >> /etc/stunnel/stunnel.pem
 
+# Set proper permissions
+chmod 600 /etc/stunnel/stunnel.pem
+chmod 600 /etc/stunnel/key.pem
+chmod 644 /etc/stunnel/cert.pem
+
 # Set Stunnel configuration (matching ssh-vpn.sh exactly)
 sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
-log_command "/etc/init.d/stunnel4 restart"
+if ! /etc/init.d/stunnel4 restart; then
+    log_and_show "⚠️ stunnel4 restart failed, trying systemctl..."
+    systemctl enable stunnel4 2>/dev/null || true
+    systemctl restart stunnel4 2>/dev/null || true
+fi
 
 # Configure Nginx (nginx will be installed in sshws-2025.sh)
 log_and_show "🌐 Preparing Nginx configuration..."

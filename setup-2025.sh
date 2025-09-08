@@ -181,12 +181,12 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     if ./tools-2025.sh; then
         log_and_show "✅ Tools installation completed successfully"
     else
-        log_and_show "❌ Tools installation failed"
-        exit 1
+        log_and_show "⚠️ Tools installation failed, but continuing with other components..."
+        echo "TOOLS-2025: FAILED" >> /root/log-install.txt
     fi
 else
-    log_and_show "❌ Failed to download tools-2025.sh"
-    exit 1
+    log_and_show "⚠️ Failed to download tools-2025.sh, but continuing..."
+    echo "TOOLS-2025: DOWNLOAD FAILED" >> /root/log-install.txt
 fi
 
 # 2. SSH/VPN INSTALLATION  
@@ -201,12 +201,12 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     if ./ssh-2025.sh; then
         log_and_show "✅ SSH/VPN installation completed successfully"
     else
-        log_and_show "❌ SSH/VPN installation failed"
-        exit 1
+        log_and_show "⚠️ SSH/VPN installation failed, but continuing with other components..."
+        echo "SSH-2025: FAILED" >> /root/log-install.txt
     fi
 else
-    log_and_show "❌ Failed to download ssh-2025.sh"
-    exit 1
+    log_and_show "⚠️ Failed to download ssh-2025.sh, but continuing..."
+    echo "SSH-2025: DOWNLOAD FAILED" >> /root/log-install.txt
 fi
 
 # 3. WEBSOCKET INSTALLATION
@@ -221,12 +221,12 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     if ./sshws-2025.sh; then
         log_and_show "✅ WebSocket installation completed successfully"
     else
-        log_and_show "❌ WebSocket installation failed"
-        exit 1
+        log_and_show "⚠️ WebSocket installation failed, but continuing with other components..."
+        echo "SSHWS-2025: FAILED" >> /root/log-install.txt
     fi
 else
-    log_and_show "❌ Failed to download sshws-2025.sh"
-    exit 1
+    log_and_show "⚠️ Failed to download sshws-2025.sh, but continuing..."
+    echo "SSHWS-2025: DOWNLOAD FAILED" >> /root/log-install.txt
 fi
 
 # 4. XRAY INSTALLATION
@@ -241,12 +241,12 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     if ./xray-2025.sh; then
         log_and_show "✅ Xray installation completed successfully"
     else
-        log_and_show "❌ Xray installation failed"
-        exit 1
+        log_and_show "⚠️ Xray installation failed, but continuing..."
+        echo "XRAY-2025: FAILED" >> /root/log-install.txt
     fi
 else
-    log_and_show "❌ Failed to download xray-2025.sh"
-    exit 1
+    log_and_show "⚠️ Failed to download xray-2025.sh, but continuing..."
+    echo "XRAY-2025: DOWNLOAD FAILED" >> /root/log-install.txt
 fi
 
 # Installation completion

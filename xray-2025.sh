@@ -22,7 +22,15 @@ log_and_show "⚡ Starting Xray installation with modern protocols..."
 
 # Detect latest Xray version automatically
 log_and_show "🔍 Detecting latest Xray version..."
-XRAY_VERSION="$(curl -s --connect-timeout 10 "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep tag_nam# Trojan management (Enhanced only)
+XRAY_VERSION="$(curl -s --connect-timeout 10 "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
+if [ -z "$XRAY_VERSION" ] || [ "$XRAY_VERSION" = "null" ]; then
+    log_and_show "⚠️ Failed to detect latest version (API timeout or error), using fallback v1.8.24"
+    XRAY_VERSION="1.8.24"
+else
+    log_and_show "✅ Latest version detected: v${XRAY_VERSION}"
+fi
+
+# Trojan management (Enhanced only)
 log_and_show "🔫 Installing Trojan management scripts..."
 log_command "wget -O /usr/local/bin/add-trojan-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-trojan-enhanced.sh"
 log_command "wget -O /usr/local/bin/trialtrojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojan.sh"
@@ -62,7 +70,19 @@ log_command "chronyc tracking -v"
 
 # Download and install Xray using official installer with detected version
 log_and_show "📥 Downloading & Installing Xray core v${XRAY_VERSION} using official installer..."
-log_command "bash -c \"\$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)\" @ install -u www-data --version ${XRAY_VERSION}"
+if ! bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version ${XRAY_VERSION}; then
+    log_and_show "⚠️ Official installer failed, trying alternative method..."
+    # Alternative installation method
+    if ! curl -L -o /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh; then
+        log_and_show "❌ Failed to download Xray installer"
+        return 1
+    fi
+    if ! bash /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION}; then
+        log_and_show "❌ Alternative Xray installation failed"
+        return 1
+    fi
+fi
+log_and_show "✅ Xray core installation completed"
 
 # Create Xray directories (comprehensive from ins-xray.sh)
 log_and_show "📁 Creating Xray directories and domain socket..."

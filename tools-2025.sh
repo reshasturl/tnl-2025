@@ -75,7 +75,7 @@ log_command "apt-get install nodejs -y"
 
 # Python environment
 log_and_show "🐍 Setting up Python environment..."
-log_command "apt install -y python3 python3-pip python2 python2-dev"
+log_command "apt install -y python3 python3-pip python3-dev build-essential"
 if ! command -v python >/dev/null 2>&1; then
     log_command "ln -sf /usr/bin/python3 /usr/bin/python"
     log_and_show "✅ Python symlink created"
@@ -97,7 +97,8 @@ fi
 
 # Configure vnstat with enhanced security
 log_and_show "⚙️ Configuring vnstat with enhanced security..."
-log_command "vnstat -u -i $NET"
+# Use --create instead of -u for vnstat 2.9 compatibility
+log_command "vnstat --create -i $NET" || log_and_show "⚠️ vnstat database may already exist"
 # Fix vnstat.conf interface configuration
 log_command "sed -i 's/Interface \"eth0\"/Interface \"$NET\"/g' /etc/vnstat.conf"
 log_command "chown vnstat:vnstat /var/lib/vnstat -R"
@@ -112,11 +113,12 @@ After=network.target network-online.target nss-lookup.target time-sync.target
 Wants=network-online.target
 
 [Service]
-Type=forking
-PIDFile=/var/run/vnstat/vnstat.pid
+Type=simple
+Restart=on-failure
+RestartSec=5
 ExecStartPre=/bin/mkdir -p /var/run/vnstat
 ExecStartPre=/bin/chown vnstat:vnstat /var/run/vnstat
-ExecStart=/usr/bin/vnstatd -d
+ExecStart=/usr/bin/vnstatd --nodaemon
 ExecReload=/bin/kill -HUP $MAINPID
 User=vnstat
 Group=vnstat
@@ -143,7 +145,9 @@ EOF
 
 log_command "systemctl daemon-reload"
 log_command "systemctl enable vnstat"
-log_command "systemctl start vnstat"
+if ! systemctl start vnstat; then
+    log_and_show "⚠️ vnstat service may need manual restart after system reboot"
+fi
 log_and_show "✅ vnstat configured with hardened systemd service"
 
 # Enhanced security tools with nginx DDoS protection

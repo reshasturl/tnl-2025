@@ -6,7 +6,11 @@
 # Default entries for testing
 127.0.0.1 localhost ACTIVE 2099-12-31
 0.0.0.0 default ACTIVE 2099-12-31
+<<<<<<< HEAD
 34.101.185.109 npv3 ACTIVE 2099-12-31
+=======
+34.101.114.218 npv3 ACTIVE 2099-12-31
+>>>>>>> f621333a072f74a14e78cd7876d71cc724eb0209
 180.242.70.123 uvi ACTIVE 2099-12-31
 
 # Example entries:

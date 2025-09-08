@@ -277,25 +277,190 @@ log_command "systemctl enable ws-stunnel"
 log_command "systemctl start ws-dropbear"
 log_command "systemctl start ws-stunnel"
 
-# Start nginx with detailed error checking
+# Start nginx with comprehensive error checking and fixing
 log_and_show "🌐 Starting nginx service..."
-if systemctl restart nginx 2>/dev/null; then
-    log_and_show "✅ Nginx service started successfully"
-else
-    log_and_show "⚠️ Nginx restart failed, checking status..."
-    systemctl status nginx --no-pager || true
+
+# First, test nginx configuration
+log_and_show "🔍 Testing nginx configuration..."
+if ! nginx -t 2>/dev/null; then
+    log_and_show "❌ Nginx configuration test failed, attempting to fix..."
     
-    # Try to start nginx without restart
-    if systemctl start nginx 2>/dev/null; then
-        log_and_show "✅ Nginx service started"
+    # Backup current config and create minimal working config
+    [ -f /etc/nginx/nginx.conf ] && cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup
+    
+    # Create a minimal working nginx configuration
+    cat > /etc/nginx/nginx.conf << 'EOF'
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections 768;
+    # multi_accept on;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    types_hash_max_size 2048;
+    
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+    
+    gzip on;
+    
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+EOF
+    
+    # Test the minimal config
+    if nginx -t 2>/dev/null; then
+        log_and_show "✅ Minimal nginx configuration created and tested"
     else
-        log_and_show "⚠️ Nginx service may need manual configuration"
-        # Try to identify the problem
-        nginx -t || log_and_show "❌ Nginx configuration test failed"
+        log_and_show "❌ Even minimal nginx configuration failed"
+        # Try to remove problematic includes
+        cat > /etc/nginx/nginx.conf << 'EOF'
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 768;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    types_hash_max_size 2048;
+    
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+    
+    gzip on;
+    
+    server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+        
+        root /var/www/html;
+        index index.html index.htm index.nginx-debian.html;
+        
+        server_name _;
+        
+        location / {
+            try_files $uri $uri/ =404;
+        }
+    }
+}
+EOF
+        nginx -t || log_and_show "❌ Critical nginx configuration failure"
     fi
 fi
 
-log_command "systemctl enable nginx"
+# Ensure proper directories and permissions exist
+log_command "mkdir -p /var/log/nginx /var/lib/nginx /var/cache/nginx"
+log_command "chown -R www-data:www-data /var/log/nginx /var/lib/nginx /var/cache/nginx" || true
+log_command "mkdir -p /var/www/html"
+echo "<h1>Server Running</h1>" > /var/www/html/index.html 2>/dev/null || true
+
+# Check for port conflicts before starting nginx
+if netstat -tlnp 2>/dev/null | grep -q ":80 "; then
+    log_and_show "⚠️ Port 80 is in use, checking what's using it..."
+    netstat -tlnp | grep ":80 " || true
+    
+    # Try to stop conflicting services
+    log_and_show "🔄 Attempting to stop conflicting services on port 80..."
+    systemctl stop apache2 2>/dev/null || true
+    systemctl stop httpd 2>/dev/null || true
+    pkill -f "nginx" 2>/dev/null || true
+    sleep 2
+fi
+
+# Stop any existing nginx processes
+log_command "systemctl stop nginx" 2>/dev/null || true
+pkill -f nginx 2>/dev/null || true
+sleep 2
+
+# Start nginx with multiple attempts and detailed error reporting
+for attempt in 1 2 3; do
+    log_and_show "🔄 Starting nginx (attempt $attempt/3)..."
+    
+    if systemctl start nginx 2>/dev/null; then
+        log_and_show "✅ Nginx service started successfully"
+        break
+    else
+        log_and_show "⚠️ Nginx start attempt $attempt failed"
+        
+        # Get detailed error information
+        systemctl status nginx --no-pager -l || true
+        journalctl -u nginx --no-pager -l -n 10 || true
+        
+        if [ $attempt -eq 3 ]; then
+            log_and_show "❌ Nginx failed to start after 3 attempts"
+            
+            # Try manual nginx start for better error message
+            log_and_show "🔧 Attempting manual nginx start for diagnostics..."
+            nginx 2>&1 || log_and_show "❌ Manual nginx start also failed"
+            
+            # Check system resources
+            log_and_show "🔍 System resource check:"
+            df -h / || true
+            free -m || true
+            
+            # Create simple fallback
+            log_and_show "⚠️ Creating nginx service override for debugging..."
+            mkdir -p /etc/systemd/system/nginx.service.d/
+            cat > /etc/systemd/system/nginx.service.d/override.conf << 'EOF'
+[Service]
+ExecStartPre=
+ExecStartPre=/usr/sbin/nginx -t
+ExecStart=
+ExecStart=/usr/sbin/nginx -g 'daemon on; master_process on;'
+ExecReload=
+ExecReload=/bin/sh -c "/bin/kill -s HUP \$(/bin/cat /var/run/nginx.pid)"
+KillSignal=SIGQUIT
+TimeoutStopSec=5
+KillMode=mixed
+EOF
+            systemctl daemon-reload
+            
+            # Final attempt with override
+            if systemctl start nginx 2>/dev/null; then
+                log_and_show "✅ Nginx started with service override"
+            else
+                log_and_show "❌ Nginx startup completely failed, continuing without nginx"
+            fi
+        else
+            sleep 3
+        fi
+    fi
+done
+
+# Enable nginx service for startup
+log_command "systemctl enable nginx" || log_and_show "⚠️ Failed to enable nginx service"
+
+# Verify nginx is actually running and listening
+if systemctl is-active nginx >/dev/null 2>&1; then
+    log_and_show "✅ Nginx service is active"
+    if netstat -tlnp 2>/dev/null | grep -q ":80.*nginx"; then
+        log_and_show "✅ Nginx is listening on port 80"
+    else
+        log_and_show "⚠️ Nginx is running but not listening on port 80"
+    fi
+else
+    log_and_show "❌ Nginx service failed to start properly"
+fi
 
 # Verify services are running
 if systemctl is-active --quiet ws-dropbear.service; then

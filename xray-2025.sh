@@ -95,83 +95,125 @@ fi
 # Download and install Xray using multiple methods with better error handling
 log_and_show "📥 Installing Xray core v${XRAY_VERSION} using multiple methods..."
 
-# Method 1: Official installer with corrected command structure
-log_and_show "🔄 Method 1: Official installer..."
-if curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh | bash -s -- install -u www-data --version ${XRAY_VERSION} 2>/dev/null; then
-    log_and_show "✅ Official installer succeeded"
-    XRAY_INSTALLED=true
-else
-    log_and_show "⚠️ Official installer failed, trying alternative method..."
-    XRAY_INSTALLED=false
-fi
+# Initialize installation state
+XRAY_INSTALLED=false
 
-# Method 2: Download script then execute 
+# Method 1: Official installer with timeout and error handling
+log_and_show "🔄 Method 1: Official installer..."
+(
+    timeout 60 bash -c '
+        curl -sL --connect-timeout 30 --max-time 60 https://github.com/XTLS/Xray-install/raw/main/install-release.sh | bash -s -- install -u www-data --version '"${XRAY_VERSION}"'
+    ' 2>/dev/null
+) && XRAY_INSTALLED=true || log_and_show "⚠️ Method 1 failed"
+
+# Method 2: Download script then execute with improved error handling
 if [ "$XRAY_INSTALLED" = false ]; then
     log_and_show "🔄 Method 2: Download and execute..."
-    if curl -L -o /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh 2>/dev/null; then
+    if curl -L --connect-timeout 30 --max-time 60 -o /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh 2>/dev/null; then
         chmod +x /tmp/xray-install.sh
-        if /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION} 2>/dev/null; then
-            log_and_show "✅ Alternative installation succeeded"
+        if timeout 60 /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION} 2>/dev/null; then
+            log_and_show "✅ Method 2 succeeded"
             XRAY_INSTALLED=true
         else
-            log_and_show "⚠️ Alternative installation failed"
+            log_and_show "⚠️ Method 2 failed"
         fi
         rm -f /tmp/xray-install.sh
     fi
 fi
 
-# Method 3: Manual installation with better architecture detection
+# Method 3: Manual installation with robust architecture detection and multiple URLs
 if [ "$XRAY_INSTALLED" = false ]; then
-    log_and_show "🔄 Method 3: Manual installation..."
-    # Better architecture detection
+    log_and_show "🔄 Method 3: Manual installation with fallback URLs..."
+    
+    # Enhanced architecture detection
     XRAY_ARCH=""
-    case $(uname -m) in
+    MACHINE_ARCH=$(uname -m)
+    case $MACHINE_ARCH in
         "x86_64"|"amd64") XRAY_ARCH="64" ;;
         "aarch64"|"arm64") XRAY_ARCH="arm64-v8a" ;;
-        "armv7l") XRAY_ARCH="arm32-v7a" ;;
+        "armv7l"|"armhf") XRAY_ARCH="arm32-v7a" ;;
         "armv6l") XRAY_ARCH="arm32-v6" ;;
         "i386"|"i686") XRAY_ARCH="32" ;;
-        *) XRAY_ARCH="64" ;;  # Default fallback
+        "armv5l") XRAY_ARCH="arm32-v5" ;;
+        *) 
+            log_and_show "⚠️ Unknown architecture: $MACHINE_ARCH, using 64-bit as fallback"
+            XRAY_ARCH="64" 
+        ;;
     esac
     
-    log_and_show "🔍 Detected architecture: $(uname -m) -> $XRAY_ARCH"
+    log_and_show "🔍 System: $MACHINE_ARCH -> Xray arch: linux-$XRAY_ARCH"
     
-    # Try multiple download methods for Xray binary
+    # Multiple download URLs for redundancy
+    DOWNLOAD_URLS=(
+        "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip"
+        "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${XRAY_ARCH}.zip"
+    )
+    
     DOWNLOAD_SUCCESS=false
-    for method in "wget" "curl"; do
-        log_and_show "📥 Trying $method to download Xray..."
+    
+    for url in "${DOWNLOAD_URLS[@]}"; do
+        log_and_show "📥 Trying URL: $url"
         
-        if [ "$method" = "wget" ]; then
-            if wget --timeout=30 -O /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip" 2>/dev/null; then
-                DOWNLOAD_SUCCESS=true
-                break
-            fi
-        elif [ "$method" = "curl" ]; then
-            if curl -L --connect-timeout 30 -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip" 2>/dev/null; then
-                DOWNLOAD_SUCCESS=true
-                break
-            fi
+        # Try wget first, then curl
+        for tool in "wget" "curl"; do
+            case $tool in
+                "wget")
+                    if command -v wget >/dev/null 2>&1; then
+                        if wget --timeout=30 --tries=3 -O /tmp/xray.zip "$url" 2>/dev/null; then
+                            DOWNLOAD_SUCCESS=true
+                            log_and_show "✅ Downloaded with wget from: $url"
+                            break 2
+                        fi
+                    fi
+                ;;
+                "curl")
+                    if command -v curl >/dev/null 2>&1; then
+                        if curl -L --connect-timeout 30 --max-time 60 --retry 3 -o /tmp/xray.zip "$url" 2>/dev/null; then
+                            DOWNLOAD_SUCCESS=true
+                            log_and_show "✅ Downloaded with curl from: $url"
+                            break 2
+                        fi
+                    fi
+                ;;
+            esac
+        done
+        
+        if [ "$DOWNLOAD_SUCCESS" = true ]; then
+            break
         fi
     done
     
-    if [ "$DOWNLOAD_SUCCESS" = true ]; then
-        # Extract and install
-        if command -v unzip >/dev/null 2>&1; then
-            if unzip -q /tmp/xray.zip -d /tmp/xray/ 2>/dev/null; then
-                # Create necessary directories
-                mkdir -p /usr/local/bin /etc/xray /var/log/xray
+    if [ "$DOWNLOAD_SUCCESS" = true ] && [ -f /tmp/xray.zip ]; then
+        # Verify download integrity
+        if file /tmp/xray.zip | grep -q "Zip archive"; then
+            log_and_show "✅ Archive verification passed"
+            
+            # Extract and install
+            if command -v unzip >/dev/null 2>&1; then
+                rm -rf /tmp/xray/ 2>/dev/null
+                mkdir -p /tmp/xray/
                 
-                # Install binary and set permissions
-                if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
-                    log_and_show "✅ Xray binary installed successfully"
-                    XRAY_INSTALLED=true
-                    
-                    # Set proper ownership
-                    chown www-data:www-data /usr/local/bin/xray 2>/dev/null || true
-                    
-                    # Create systemd service if not exists
-                    if [[ ! -f /etc/systemd/system/xray.service ]]; then
-                        cat > /etc/systemd/system/xray.service << 'EOF'
+                if unzip -q /tmp/xray.zip -d /tmp/xray/ 2>/dev/null; then
+                    if [ -f /tmp/xray/xray ]; then
+                        # Create necessary directories
+                        mkdir -p /usr/local/bin /etc/xray /var/log/xray
+                        
+                        # Install binary with proper permissions
+                        if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
+                            # Verify installation
+                            if /usr/local/bin/xray version >/dev/null 2>&1; then
+                                log_and_show "✅ Xray binary installed and verified"
+                                XRAY_INSTALLED=true
+                                
+                                # Set proper ownership
+                                chown www-data:www-data /usr/local/bin/xray 2>/dev/null || true
+                                
+                                # Create symlink for system-wide access
+                                ln -sf /usr/local/bin/xray /usr/bin/xray 2>/dev/null || true
+                                
+                                # Create systemd service if not exists
+                                if [[ ! -f /etc/systemd/system/xray.service ]]; then
+                                    cat > /etc/systemd/system/xray.service << 'EOF'
 [Unit]
 Description=Xray Service
 Documentation=https://github.com/xtls
@@ -191,13 +233,49 @@ LimitNOFILE=1000000
 [Install]
 WantedBy=multi-user.target
 EOF
-                        systemctl daemon-reload
-                        log_and_show "✅ Xray systemd service created"
+                                    systemctl daemon-reload
+                                    log_and_show "✅ Xray systemd service created"
+                                fi
+                            else
+                                log_and_show "❌ Xray binary verification failed"
+                            fi
+                        else
+                            log_and_show "❌ Failed to install Xray binary"
+                        fi
+                    else
+                        log_and_show "❌ Xray binary not found in archive"
                     fi
                 else
-                    log_and_show "❌ Failed to install Xray binary"
+                    log_and_show "❌ Failed to extract Xray archive"
                 fi
             else
+                log_and_show "❌ unzip command not found, installing..."
+                apt update && apt install -y unzip
+                if command -v unzip >/dev/null 2>&1; then
+                    # Retry extraction after installing unzip
+                    rm -rf /tmp/xray/ 2>/dev/null
+                    mkdir -p /tmp/xray/
+                    if unzip -q /tmp/xray.zip -d /tmp/xray/ 2>/dev/null && [ -f /tmp/xray/xray ]; then
+                        mkdir -p /usr/local/bin /etc/xray /var/log/xray
+                        if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
+                            log_and_show "✅ Xray binary installed after unzip installation"
+                            XRAY_INSTALLED=true
+                            chown www-data:www-data /usr/local/bin/xray 2>/dev/null || true
+                            ln -sf /usr/local/bin/xray /usr/bin/xray 2>/dev/null || true
+                        fi
+                    fi
+                fi
+            fi
+        else
+            log_and_show "❌ Downloaded file is not a valid archive"
+        fi
+        
+        # Cleanup
+        rm -rf /tmp/xray* 2>/dev/null
+    else
+        log_and_show "❌ Failed to download Xray from all URLs"
+    fi
+fi
                 log_and_show "❌ Failed to extract Xray archive"
             fi
         else

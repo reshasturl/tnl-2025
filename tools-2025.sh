@@ -6,6 +6,9 @@
 # Log: Inherit dari setup-2025.sh
 # ===============================================================================
 
+# Prevent interactive prompts during package installation (for iptables-persistent)
+export DEBIAN_FRONTEND=noninteractive
+
 # Inherit logging system
 if [ -z "$INSTALL_LOG_PATH" ]; then
     echo "ERROR: Must be called from setup-2025.sh"

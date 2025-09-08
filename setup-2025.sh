@@ -52,29 +52,45 @@ BURIQ () {
 }
 
 MYIP=$(curl -sS ipv4.icanhazip.com)
-Name=$(curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip | grep $MYIP | awk '{print $2}')
-echo $Name > /usr/local/etc/.$Name.ini
-CekOne=$(cat /usr/local/etc/.$Name.ini)
+# Get authorized info from IP database
+AUTH_INFO=$(curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip | grep "$MYIP")
+if [ -n "$AUTH_INFO" ]; then
+    Name=$(echo $AUTH_INFO | awk '{print $2}')
+    Status=$(echo $AUTH_INFO | awk '{print $3}')
+    Expiry=$(echo $AUTH_INFO | awk '{print $4}')
+    
+    # Create user info files
+    mkdir -p /usr/local/etc
+    echo $Name > /usr/local/etc/.$Name.ini
+    CekOne=$(cat /usr/local/etc/.$Name.ini)
+else
+    Name=""
+    Status=""
+    CekOne=""
+fi
 
 Bloman () {
-if [ -f "/etc/.$Name.ini" ]; then
-CekTwo=$(cat /etc/.$Name.ini)
-    if [ "$CekOne" = "$CekTwo" ]; then
-        res="Expired"
+    if [ -n "$AUTH_INFO" ] && [ "$Status" = "ACTIVE" ]; then
+        # Check if it's not expired
+        current_date=$(date +%Y-%m-%d)
+        if [ "$Expiry" = "2099-12-31" ] || [ "$current_date" \< "$Expiry" ]; then
+            res="Permission Accepted..."
+        else
+            res="Expired"
+        fi
+    else
+        res="Permission Denied!"
     fi
-else
-res="Permission Accepted..."
-fi
 }
 
 PERMISSION () {
     MYIP=$(curl -sS ipv4.icanhazip.com)
-    IZIN=$(curl -sS https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ip | grep $MYIP)
-    if [ -n "$IZIN" ]; then
+    log_and_show "🔍 Checking IP: $MYIP"
+    
+    # Simply call Bloman to check authorization
     Bloman
-    else
-    res="Permission Denied!"
-    fi
+    
+    # Also call BURIQ for additional checks
     BURIQ
 }
 

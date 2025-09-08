@@ -2,7 +2,10 @@
 #
 # YT ZIXSTYLE VPN Server 2025 - INSTALLER ENTRY POINT
 # Created: September 7, 2025
-# Purpose: Entry point dengan comprehensive logging system
+log_and_show "📋 Installation Summary:"
+log_and_show "   🕐 Started: ${INSTALL_START_TIME}"
+log_and_show "   🏁 Completed: $(date '+%Y-%m-%d %H:%M:%S')"
+log_and_show "   📝 Log file: ${INSTALL_LOG_PATH}"rpose: Entry point dengan comprehensive logging system
 # ===============================================================================
 
 clear
@@ -14,8 +17,8 @@ echo "  ╚═══════════════════════
 echo -e "\033[0m"
 
 # Setup comprehensive logging system
-export INSTALL_START_TIME=$(date +%Y%m%d-%H%M%S)
-export INSTALL_LOG_FILE="yt-zixstyle-install-${INSTALL_START_TIME}.log"
+export INSTALL_START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+export INSTALL_LOG_FILE="yt-zixstyle-install-$(date +%Y%m%d-%H%M%S).log"
 export INSTALL_LOG_PATH="$(pwd)/${INSTALL_LOG_FILE}"
 
 # Enhanced logging functions - akan digunakan oleh semua script
@@ -76,23 +79,15 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     log_command "sed -i -e 's/\r$//' setup-2025.sh"
     
     log_section "STARTING MAIN INSTALLATION"
-    log_and_show "🚀 Executing main installer in screen session..."
+    log_and_show "🚀 Executing main installer directly..."
     
-    # Execute setup with logging continuation
-    screen -dmS yt-zixstyle-install bash -c "
-        export INSTALL_LOG_FILE='${INSTALL_LOG_FILE}'
-        export INSTALL_LOG_PATH='${INSTALL_LOG_PATH}'
-        export INSTALL_START_TIME='${INSTALL_START_TIME}'
-        export -f log_and_show
-        export -f log_command
-        export -f log_section
-        ./setup-2025.sh
-        echo 'Installation completed. Check log: ${INSTALL_LOG_PATH}' | tee -a '${INSTALL_LOG_PATH}'
-    "
-    
-    log_and_show "📺 Installation started in screen session 'yt-zixstyle-install'"
-    log_and_show "📝 Monitor installation: tail -f ${INSTALL_LOG_PATH}"
-    log_and_show "📺 Attach to session: screen -r yt-zixstyle-install"
+    # Execute setup directly in current session with logging
+    if ./setup-2025.sh; then
+        log_and_show "✅ Installation completed successfully!"
+    else
+        log_and_show "❌ Installation failed!"
+        exit 1
+    fi
     
 else
     log_and_show "❌ Failed to download setup-2025.sh"
@@ -100,6 +95,12 @@ else
 fi
 
 log_and_show ""
-log_and_show "🎉 Installation initiated successfully!"
-log_and_show "📝 Complete log will be saved to: ${INSTALL_LOG_PATH}"
-echo ""
+log_and_show "🎉 YT ZIXSTYLE VPN Server 2025 Installation Complete!"
+log_and_show "📝 Full installation log saved to: ${INSTALL_LOG_PATH}"
+log_and_show ""
+log_and_show "📋 Installation Summary:"
+log_and_show "   � Started: $(date -d @${INSTALL_START_TIME} 2>/dev/null || echo ${INSTALL_START_TIME})"
+log_and_show "   🏁 Completed: $(date)"
+log_and_show "   📝 Log file: ${INSTALL_LOG_PATH}"
+log_and_show ""
+log_and_show "✅ Your VPN server is ready to use!"

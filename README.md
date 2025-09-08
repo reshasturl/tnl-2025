@@ -4,6 +4,9 @@
 
 <pre><code>sudo su - && wget https://raw.githubusercontent.com/reshasturl/tnl-2025/main/install-2025.sh && chmod +x install-2025.sh && screen -S vpn-install ./install-2025.sh</code></pre>
 
+set password su
+"sudo passwd root"
+
 <table>
 <thead>
 <tr>

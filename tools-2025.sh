@@ -71,23 +71,25 @@ if command -v stunnel4 >/dev/null 2>&1; then
         cat > /etc/stunnel/stunnel.conf << 'EOF'
 ; Basic stunnel4 configuration for YT ZIXSTYLE VPN
 cert = /etc/stunnel/stunnel.pem
-;key = /etc/stunnel/stunnel.key
+pid = /var/run/stunnel4/stunnel.pid
 
-; Enable FIPS 140-2 mode if needed
-;fips = yes
-
+; User and group
 setuid = stunnel4
 setgid = stunnel4
-pid = /var/run/stunnel4/stunnel.pid
 
 ; Some performance tunings
 socket = l:TCP_NODELAY=1
 socket = r:TCP_NODELAY=1
 
-; Default service disabled - will be configured by ssh-2025.sh
-;[ssh]
-;accept = 443
-;connect = 127.0.0.1:22
+; Logging
+debug = 4
+output = /var/log/stunnel4/stunnel.log
+
+; Basic HTTPS to HTTP proxy service (minimal working configuration)
+[https]
+accept = 8443
+connect = 127.0.0.1:8080
+TIMEOUTclose = 0
 
 EOF
         log_and_show "✅ Basic stunnel4 configuration created"
@@ -329,9 +331,35 @@ else
     log_and_show "⚠️ vnstat command not found, skipping configuration"
 fi
 
-# Create hardened vnstat systemd service
+# Create hardened vnstat systemd service with dynamic path detection
 log_and_show "🔒 Creating hardened vnstat systemd service..."
-cat > /etc/systemd/system/vnstat.service << 'EOF'
+
+# Detect vnstatd path
+VNSTATD_PATH=""
+for path in /usr/bin/vnstatd /usr/local/bin/vnstatd /bin/vnstatd /usr/sbin/vnstatd; do
+    if [[ -x "$path" ]]; then
+        VNSTATD_PATH="$path"
+        log_and_show "✅ Found vnstatd at: $VNSTATD_PATH"
+        break
+    fi
+done
+
+# If not found in common paths, try which command
+if [[ -z "$VNSTATD_PATH" ]]; then
+    if command -v vnstatd >/dev/null 2>&1; then
+        VNSTATD_PATH=$(which vnstatd)
+        log_and_show "✅ Found vnstatd using which: $VNSTATD_PATH"
+    else
+        log_and_show "⚠️ vnstatd not found, using default path /usr/bin/vnstatd"
+        VNSTATD_PATH="/usr/bin/vnstatd"
+    fi
+fi
+
+# Only create service if vnstatd binary actually exists
+if [[ -x "$VNSTATD_PATH" ]]; then
+    log_and_show "✅ vnstatd binary verified at: $VNSTATD_PATH"
+    
+    cat > /etc/systemd/system/vnstat.service << EOF
 [Unit]
 Description=vnStat network traffic monitor
 Documentation=man:vnstatd(8) man:vnstat(1) man:vnstat.conf(5)
@@ -344,8 +372,8 @@ Restart=on-failure
 RestartSec=5
 ExecStartPre=/bin/mkdir -p /var/run/vnstat
 ExecStartPre=/bin/chown vnstat:vnstat /var/run/vnstat
-ExecStart=/usr/bin/vnstatd --nodaemon
-ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=$VNSTATD_PATH --nodaemon
+ExecReload=/bin/kill -HUP \$MAINPID
 User=vnstat
 Group=vnstat
 
@@ -369,8 +397,13 @@ SystemCallArchitectures=native
 WantedBy=multi-user.target
 EOF
 
-log_command "systemctl daemon-reload"
-log_command "systemctl enable vnstat"
+    log_command "systemctl daemon-reload"
+    log_command "systemctl enable vnstat"
+    log_and_show "✅ vnstat systemd service created and enabled"
+else
+    log_and_show "⚠️ vnstatd binary not found at $VNSTATD_PATH, service creation skipped"
+    log_and_show "⚠️ vnstat will need manual configuration after binary installation"
+fi
 
 # Fix vnstat database initialization and service startup
 log_and_show "📊 Initializing vnstat database and starting service..."

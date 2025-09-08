@@ -1199,12 +1199,29 @@ EOF
 fi
 log_command "systemctl enable nginx"
 
-# Start and enable services
+# Start and enable services with enhanced nginx handling
 log_and_show "🚀 Starting all services (Xray, Trojan-Go, nginx)..."
 log_command "systemctl daemon-reload"
 log_command "systemctl enable xray"
 log_command "systemctl enable runn"
 log_command "systemctl enable trojan-go"
+
+# Start nginx first with error handling
+log_and_show "🌐 Starting nginx service..."
+log_command "nginx -t"
+if ! log_command "systemctl restart nginx"; then
+    log_and_show "⚠️ Nginx restart failed, trying alternative methods..."
+    log_command "systemctl stop nginx" || true
+    sleep 2
+    # Kill any orphaned nginx processes
+    pkill -f nginx || true
+    sleep 1
+    # Try to start nginx again
+    if ! log_command "systemctl start nginx"; then
+        log_and_show "⚠️ Nginx service failed to start, continuing with other services..."
+    fi
+fi
+
 log_command "systemctl start runn"
 log_command "systemctl start xray"
 log_command "systemctl start trojan-go"
@@ -1227,6 +1244,17 @@ if systemctl is-active --quiet nginx.service; then
     log_and_show "✅ Nginx service: ACTIVE"
 else
     log_and_show "⚠️ Nginx service: FAILED to start"
+    # Diagnose nginx failure
+    log_and_show "🔍 Diagnosing nginx failure..."
+    echo "=== Nginx Error Diagnosis ===" >> /root/log-install.txt
+    systemctl status nginx >> /root/log-install.txt 2>&1 || true
+    echo "=== Nginx Test Configuration ===" >> /root/log-install.txt
+    nginx -t >> /root/log-install.txt 2>&1 || true
+    echo "=== Port Conflicts Check ===" >> /root/log-install.txt
+    netstat -tulpn | grep ":80\|:443" >> /root/log-install.txt 2>&1 || true
+    echo "=== Nginx Error Log ===" >> /root/log-install.txt
+    tail -10 /var/log/nginx/error.log >> /root/log-install.txt 2>&1 || true
+    log_and_show "⚠️ Nginx diagnosis saved to /root/log-install.txt"
 fi
 
 # Install menu system

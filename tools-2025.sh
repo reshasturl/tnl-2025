@@ -66,7 +66,21 @@ if command -v stunnel4 >/dev/null 2>&1; then
     # Ensure stunnel4 configuration directory exists
     log_command "mkdir -p /etc/stunnel"
     
-    # Create basic stunnel4 configuration if it doesn't exist
+    # Create stunnel4 user if not exists (before creating certificate)
+    if ! id stunnel4 >/dev/null 2>&1; then
+        log_command "useradd --system --no-create-home --shell /bin/false stunnel4" || true
+    fi
+    
+    # Create self-signed certificate FIRST (before config)
+    if [[ ! -f /etc/stunnel/stunnel.pem ]]; then
+        log_and_show "🔐 Creating self-signed SSL certificate for stunnel4..."
+        openssl req -new -x509 -days 3650 -nodes -out /etc/stunnel/stunnel.pem -keyout /etc/stunnel/stunnel.pem -subj "/C=ID/ST=Jakarta/L=Jakarta/O=YT-ZIXSTYLE/CN=stunnel" 2>/dev/null || true
+        chmod 600 /etc/stunnel/stunnel.pem
+        chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem 2>/dev/null || true
+        log_and_show "✅ SSL certificate created for stunnel4"
+    fi
+    
+    # Create basic stunnel4 configuration AFTER certificate is ready
     if [[ ! -f /etc/stunnel/stunnel.conf ]]; then
         cat > /etc/stunnel/stunnel.conf << 'EOF'
 ; Basic stunnel4 configuration for YT ZIXSTYLE VPN
@@ -134,43 +148,22 @@ EOF
         log_command "systemctl daemon-reload"
     fi
     
-    # Test stunnel4 configuration
-    if stunnel4 -test 2>/dev/null; then
-        log_and_show "✅ stunnel4 configuration test passed"
-    else
-        log_and_show "⚠️ stunnel4 configuration test failed, creating basic certificate..."
-        # Create self-signed certificate if missing
-        if [[ ! -f /etc/stunnel/stunnel.pem ]]; then
-            log_and_show "🔐 Creating self-signed SSL certificate for stunnel4..."
-            openssl req -new -x509 -days 3650 -nodes -out /etc/stunnel/stunnel.pem -keyout /etc/stunnel/stunnel.pem -subj "/C=ID/ST=Jakarta/L=Jakarta/O=YT-ZIXSTYLE/CN=stunnel" 2>/dev/null || true
-            chmod 600 /etc/stunnel/stunnel.pem
-            chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem 2>/dev/null || true
-            log_and_show "✅ SSL certificate created for stunnel4"
-        fi
-    fi
-else
-    log_and_show "⚠️ stunnel4 not installed, skipping configuration"
-fi
-    
-    # Ensure proper directories and permissions exist
-    log_command "mkdir -p /var/run/stunnel4 /var/lib/stunnel4 /var/log/stunnel4"
-    
-    # Create stunnel4 user if not exists
-    if ! id stunnel4 >/dev/null 2>&1; then
-        log_command "useradd --system --no-create-home --shell /bin/false stunnel4" || true
-    fi
-    
-    # Set proper ownership
-    log_command "chown stunnel4:stunnel4 /var/run/stunnel4 /var/lib/stunnel4 /var/log/stunnel4" || true
-    log_command "chmod 755 /var/run/stunnel4 /var/lib/stunnel4"
-    log_command "chmod 750 /var/log/stunnel4"
-    
-    # Test stunnel4 configuration
+    # Test stunnel4 configuration (should pass now that cert exists)
     if stunnel4 -test 2>/dev/null; then
         log_and_show "✅ stunnel4 configuration test passed"
     else
         log_and_show "⚠️ stunnel4 configuration test failed, but continuing..."
     fi
+else
+    log_and_show "⚠️ stunnel4 not installed, skipping configuration"
+fi
+    # Ensure proper directories and permissions exist
+    log_command "mkdir -p /var/run/stunnel4 /var/lib/stunnel4 /var/log/stunnel4"
+    
+    # Set proper ownership (user already created above)
+    log_command "chown stunnel4:stunnel4 /var/run/stunnel4 /var/lib/stunnel4 /var/log/stunnel4" || true
+    log_command "chmod 755 /var/run/stunnel4 /var/lib/stunnel4"
+    log_command "chmod 750 /var/log/stunnel4"
     
     # Enable stunnel4 service if it exists
     if systemctl list-unit-files | grep -q "^stunnel4.service"; then

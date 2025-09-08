@@ -1244,17 +1244,17 @@ if systemctl is-active --quiet nginx.service; then
     log_and_show "✅ Nginx service: ACTIVE"
 else
     log_and_show "⚠️ Nginx service: FAILED to start"
-    # Diagnose nginx failure
-    log_and_show "🔍 Diagnosing nginx failure..."
+    # Simple diagnosis and try basic restart
+    log_and_show "🔍 Trying simple nginx restart..."
     echo "=== Nginx Error Diagnosis ===" >> /root/log-install.txt
     systemctl status nginx >> /root/log-install.txt 2>&1 || true
-    echo "=== Nginx Test Configuration ===" >> /root/log-install.txt
     nginx -t >> /root/log-install.txt 2>&1 || true
-    echo "=== Port Conflicts Check ===" >> /root/log-install.txt
-    netstat -tulpn | grep ":80\|:443" >> /root/log-install.txt 2>&1 || true
-    echo "=== Nginx Error Log ===" >> /root/log-install.txt
-    tail -10 /var/log/nginx/error.log >> /root/log-install.txt 2>&1 || true
-    log_and_show "⚠️ Nginx diagnosis saved to /root/log-install.txt"
+    
+    # Simple restart attempt
+    systemctl stop nginx 2>/dev/null || true
+    pkill -f nginx 2>/dev/null || true
+    sleep 2
+    systemctl start nginx 2>/dev/null || log_and_show "⚠️ Nginx still failed to start"
 fi
 
 # Install menu system

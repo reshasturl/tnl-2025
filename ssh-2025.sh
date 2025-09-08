@@ -845,7 +845,31 @@ if systemctl list-unit-files | grep -q "vnstat.service"; then
 elif command -v vnstat >/dev/null 2>&1; then
     # vnstat binary exists but no systemd service, try to create one
     log_and_show "🔧 Creating vnstat systemd service..."
-    cat > /etc/systemd/system/vnstat.service << 'EOF'
+    
+    # Detect vnstatd path dynamically
+    VNSTATD_PATH=""
+    for path in /usr/bin/vnstatd /usr/local/bin/vnstatd /bin/vnstatd /usr/sbin/vnstatd; do
+        if [[ -x "$path" ]]; then
+            VNSTATD_PATH="$path"
+            log_and_show "✅ Found vnstatd at: $VNSTATD_PATH"
+            break
+        fi
+    done
+    
+    # If not found in common paths, try which command
+    if [[ -z "$VNSTATD_PATH" ]]; then
+        if command -v vnstatd >/dev/null 2>&1; then
+            VNSTATD_PATH=$(which vnstatd)
+            log_and_show "✅ Found vnstatd using which: $VNSTATD_PATH"
+        else
+            log_and_show "⚠️ vnstatd not found, using default path /usr/bin/vnstatd"
+            VNSTATD_PATH="/usr/bin/vnstatd"
+        fi
+    fi
+    
+    # Only create service if vnstatd binary actually exists
+    if [[ -x "$VNSTATD_PATH" ]]; then
+        cat > /etc/systemd/system/vnstat.service << EOF
 [Unit]
 Description=vnStat network traffic monitor
 Documentation=man:vnstatd(8) https://humdi.net/vnstat/
@@ -855,8 +879,8 @@ Wants=network-online.target
 [Service]
 Type=forking
 PIDFile=/var/run/vnstat.pid
-ExecStart=/usr/bin/vnstatd -d --pidfile /var/run/vnstat.pid
-ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=$VNSTATD_PATH -d --pidfile /var/run/vnstat.pid
+ExecReload=/bin/kill -HUP \$MAINPID
 PrivateTmp=yes
 ProtectSystem=strict
 ReadWritePaths=/var/lib/vnstat
@@ -866,10 +890,13 @@ NoNewPrivileges=yes
 [Install]
 WantedBy=multi-user.target
 EOF
-    log_command "systemctl daemon-reload"
-    log_command "systemctl enable vnstat"
-    log_command "systemctl start vnstat"
-    log_and_show "✅ vnstat service created and started"
+        log_command "systemctl daemon-reload"
+        log_command "systemctl enable vnstat"
+        log_command "systemctl start vnstat"
+        log_and_show "✅ vnstat service created and started"
+    else
+        log_and_show "⚠️ vnstatd binary not found at $VNSTATD_PATH, service creation skipped"
+    fi
 else
     log_and_show "⚠️ vnstat not found, service restart skipped"
 fi

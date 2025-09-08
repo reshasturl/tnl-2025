@@ -92,34 +92,86 @@ if command -v chronyc >/dev/null 2>&1; then
     chronyc tracking -v 2>/dev/null || log_and_show "⚠️ chronyc tracking unavailable"
 fi
 
-# Download and install Xray using official installer with detected version
-log_and_show "📥 Downloading & Installing Xray core v${XRAY_VERSION} using official installer..."
-if ! bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version ${XRAY_VERSION}; then
+# Download and install Xray using multiple methods with better error handling
+log_and_show "📥 Installing Xray core v${XRAY_VERSION} using multiple methods..."
+
+# Method 1: Official installer with corrected command structure
+log_and_show "🔄 Method 1: Official installer..."
+if curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh | bash -s -- install -u www-data --version ${XRAY_VERSION} 2>/dev/null; then
+    log_and_show "✅ Official installer succeeded"
+    XRAY_INSTALLED=true
+else
     log_and_show "⚠️ Official installer failed, trying alternative method..."
-    # Alternative installation method
-    if curl -L -o /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh; then
-        if bash /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION}; then
-            log_and_show "✅ Alternative Xray installation succeeded"
+    XRAY_INSTALLED=false
+fi
+
+# Method 2: Download script then execute 
+if [ "$XRAY_INSTALLED" = false ]; then
+    log_and_show "🔄 Method 2: Download and execute..."
+    if curl -L -o /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh 2>/dev/null; then
+        chmod +x /tmp/xray-install.sh
+        if /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION} 2>/dev/null; then
+            log_and_show "✅ Alternative installation succeeded"
+            XRAY_INSTALLED=true
         else
-            log_and_show "⚠️ Alternative installation failed, trying manual Xray installation..."
-            # Manual Xray installation with architecture detection
-            XRAY_ARCH="64"
-            case $(uname -m) in
-                "armv7l") XRAY_ARCH="arm32-v7a" ;;
-                "aarch64") XRAY_ARCH="arm64-v8a" ;;
-                "armv6l") XRAY_ARCH="arm32-v6" ;;
-                "i386"|"i686") XRAY_ARCH="32" ;;
-                *) XRAY_ARCH="64" ;;
-            esac
-            
-            log_and_show "🔽 Downloading Xray binary for ${XRAY_ARCH} architecture..."
-            if wget -O /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip" 2>/dev/null; then
-                if unzip -q /tmp/xray.zip -d /tmp/xray/ 2>/dev/null; then
-                    if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
-                        log_and_show "✅ Xray installed manually"
-                        # Create basic systemd service if not exists
-                        if [[ ! -f /etc/systemd/system/xray.service ]]; then
-                            cat > /etc/systemd/system/xray.service << 'EOF'
+            log_and_show "⚠️ Alternative installation failed"
+        fi
+        rm -f /tmp/xray-install.sh
+    fi
+fi
+
+# Method 3: Manual installation with better architecture detection
+if [ "$XRAY_INSTALLED" = false ]; then
+    log_and_show "🔄 Method 3: Manual installation..."
+    # Better architecture detection
+    XRAY_ARCH=""
+    case $(uname -m) in
+        "x86_64"|"amd64") XRAY_ARCH="64" ;;
+        "aarch64"|"arm64") XRAY_ARCH="arm64-v8a" ;;
+        "armv7l") XRAY_ARCH="arm32-v7a" ;;
+        "armv6l") XRAY_ARCH="arm32-v6" ;;
+        "i386"|"i686") XRAY_ARCH="32" ;;
+        *) XRAY_ARCH="64" ;;  # Default fallback
+    esac
+    
+    log_and_show "🔍 Detected architecture: $(uname -m) -> $XRAY_ARCH"
+    
+    # Try multiple download methods for Xray binary
+    DOWNLOAD_SUCCESS=false
+    for method in "wget" "curl"; do
+        log_and_show "📥 Trying $method to download Xray..."
+        
+        if [ "$method" = "wget" ]; then
+            if wget --timeout=30 -O /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip" 2>/dev/null; then
+                DOWNLOAD_SUCCESS=true
+                break
+            fi
+        elif [ "$method" = "curl" ]; then
+            if curl -L --connect-timeout 30 -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip" 2>/dev/null; then
+                DOWNLOAD_SUCCESS=true
+                break
+            fi
+        fi
+    done
+    
+    if [ "$DOWNLOAD_SUCCESS" = true ]; then
+        # Extract and install
+        if command -v unzip >/dev/null 2>&1; then
+            if unzip -q /tmp/xray.zip -d /tmp/xray/ 2>/dev/null; then
+                # Create necessary directories
+                mkdir -p /usr/local/bin /etc/xray /var/log/xray
+                
+                # Install binary and set permissions
+                if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
+                    log_and_show "✅ Xray binary installed successfully"
+                    XRAY_INSTALLED=true
+                    
+                    # Set proper ownership
+                    chown www-data:www-data /usr/local/bin/xray 2>/dev/null || true
+                    
+                    # Create systemd service if not exists
+                    if [[ ! -f /etc/systemd/system/xray.service ]]; then
+                        cat > /etc/systemd/system/xray.service << 'EOF'
 [Unit]
 Description=Xray Service
 Documentation=https://github.com/xtls
@@ -139,43 +191,36 @@ LimitNOFILE=1000000
 [Install]
 WantedBy=multi-user.target
 EOF
-                            systemctl daemon-reload
-                        fi
-                    else
-                        log_and_show "❌ Failed to copy Xray binary"
+                        systemctl daemon-reload
+                        log_and_show "✅ Xray systemd service created"
                     fi
-                    rm -rf /tmp/xray* 2>/dev/null
                 else
-                    log_and_show "❌ Failed to extract Xray archive"
+                    log_and_show "❌ Failed to install Xray binary"
                 fi
             else
-                log_and_show "❌ Failed to download Xray binary"
+                log_and_show "❌ Failed to extract Xray archive"
             fi
+        else
+            log_and_show "❌ unzip command not found"
         fi
+        # Cleanup
+        rm -rf /tmp/xray* 2>/dev/null
     else
-        log_and_show "❌ Alternative Xray installation failed, continuing with graceful error handling..."
+        log_and_show "❌ Failed to download Xray binary"
     fi
-else
-    log_and_show "✅ Official Xray installer succeeded"
 fi
 
-# Verify Xray installation
-if command -v xray >/dev/null 2>&1; then
-    log_and_show "✅ Xray binary is available: $(which xray)"
-    log_and_show "✅ Xray version: $(xray version 2>/dev/null | head -n1 || echo 'Version check failed')"
-else
-    log_and_show "⚠️ Xray binary not found, some features may not work"
-fi
-        fi
-        rm -f /tmp/xray-install.sh
+# Final verification and summary
+if [ "$XRAY_INSTALLED" = true ]; then
+    if command -v xray >/dev/null 2>&1; then
+        XRAY_VERSION_INSTALLED=$(xray version 2>/dev/null | head -n1 || echo 'Version check failed')
+        log_and_show "✅ Xray installation successful: $XRAY_VERSION_INSTALLED"
     else
-        log_and_show "⚠️ Failed to download Xray installer, checking existing installation..."
-        if command -v xray >/dev/null 2>&1; then
-            log_and_show "✅ Xray binary already exists, continuing..."
-        else
-            log_and_show "⚠️ Xray installation failed completely, may need manual intervention"
-        fi
+        log_and_show "⚠️ Xray binary installed but not in PATH"
     fi
+else
+    log_and_show "❌ All Xray installation methods failed"
+    log_and_show "⚠️ Xray installation failed, but continuing with other components..."
 fi
 log_and_show "✅ Xray core installation process completed"
 

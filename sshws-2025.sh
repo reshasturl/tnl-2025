@@ -15,9 +15,29 @@ fi
 log_section "SSHWS-2025.SH STARTED"
 log_and_show "🌐 Starting WebSocket tunneling installation..."
 
-# Install Nginx first
+# Install Nginx first  
 log_and_show "🌐 Installing Nginx web server..."
-log_command "apt install -y nginx"
+
+# Force install nginx with proper dependency handling
+for i in {1..3}; do
+    if log_command "apt install -y nginx"; then
+        log_and_show "✅ Nginx installed successfully"
+        break
+    else
+        log_and_show "⚠️ Nginx installation failed (attempt $i/3), retrying..."
+        if [ $i -eq 3 ]; then
+            log_and_show "⚠️ Nginx installation failed after 3 attempts, continuing without nginx..."
+        fi
+        sleep 2
+    fi
+done
+
+# Verify nginx installation
+if ! command -v nginx >/dev/null 2>&1; then
+    log_and_show "⚠️ Nginx binary not found, trying alternative installation..."
+    log_command "apt update" || true
+    log_command "apt install -y nginx-core nginx-common" || log_and_show "⚠️ Alternative nginx installation failed"
+fi
 
 # Ensure nginx directory exists 
 log_command "mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled"

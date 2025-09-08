@@ -83,7 +83,18 @@ fi
 # Network utilities and monitoring
 log_and_show "🌐 Installing network utilities..."
 log_command "apt install -y speedtest-cli dnsutils netcat-openbsd iperf3 mtr-tiny tcpdump"
-log_command "apt install -y iptables iptables-persistent netfilter-persistent"
+
+# Install iptables with proper persistent support for Ubuntu 24.04
+log_and_show "🔒 Installing iptables with persistence support..."
+log_command "apt install -y iptables"
+
+# For Ubuntu 24.04, we use ufw instead of iptables-persistent
+if ! command -v netfilter-persistent >/dev/null 2>&1; then
+    log_and_show "📦 Installing iptables-persistent package..."
+    echo "iptables-persistent iptables-persistent/autosave_v4 boolean true" | debconf-set-selections
+    echo "iptables-persistent iptables-persistent/autosave_v6 boolean true" | debconf-set-selections
+    log_command "apt install -y iptables-persistent netfilter-persistent" || log_and_show "⚠️ iptables-persistent installation failed, rules may not persist"
+fi
 
 # Install Node.js 20 LTS (updated from deprecated 16.x with error handling)
 log_and_show "🟢 Installing Node.js 20 LTS..."
@@ -150,24 +161,38 @@ if ! id vnstat >/dev/null 2>&1; then
     log_command "useradd --system --no-create-home --shell /bin/false vnstat" || true
 fi
 
+# Detect network interface properly
+NET_INTERFACE=""
+if [ -d "/sys/class/net/ens4" ]; then
+    NET_INTERFACE="ens4"
+elif [ -d "/sys/class/net/eth0" ]; then
+    NET_INTERFACE="eth0"  
+elif [ -d "/sys/class/net/enp0s3" ]; then
+    NET_INTERFACE="enp0s3"
+else
+    NET_INTERFACE=$(ip route | awk '/default/ { print $5 }' | head -n1)
+fi
+
+log_and_show "🌐 Detected network interface: $NET_INTERFACE"
+
 # Create vnstat database with correct parameter for different versions
 if command -v vnstat >/dev/null 2>&1; then
     if vnstat --help 2>/dev/null | grep -q "\--add"; then
-        log_command "vnstat -i $NET --add" || log_and_show "⚠️ vnstat database may already exist"
+        log_command "vnstat -i $NET_INTERFACE --add" || log_and_show "⚠️ vnstat database may already exist"
     elif vnstat --help 2>/dev/null | grep -q "\--create"; then
-        log_command "vnstat --create -i $NET" || log_and_show "⚠️ vnstat database may already exist"
+        log_command "vnstat --create -i $NET_INTERFACE" || log_and_show "⚠️ vnstat database may already exist"
     elif vnstat --help 2>/dev/null | grep -q "\-u"; then
-        log_command "vnstat -u -i $NET" || log_and_show "⚠️ vnstat database may already exist"
+        log_command "vnstat -u -i $NET_INTERFACE" || log_and_show "⚠️ vnstat database may already exist"
     else
         # Fallback: Try basic vnstat initialization without parameters
         log_and_show "⚠️ Using fallback vnstat initialization..."
-        vnstat -i $NET 2>/dev/null || true
+        vnstat -i $NET_INTERFACE 2>/dev/null || true
         systemctl enable vnstat 2>/dev/null || true
     fi
     
     # Fix vnstat.conf interface configuration if file exists
     if [[ -f /etc/vnstat.conf ]]; then
-        log_command "sed -i 's/Interface \"eth0\"/Interface \"$NET\"/g' /etc/vnstat.conf"
+        log_command "sed -i 's/Interface \"eth0\"/Interface \"$NET_INTERFACE\"/g' /etc/vnstat.conf"
     fi
     
     # Set proper permissions

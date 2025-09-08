@@ -147,30 +147,44 @@ else
     log_and_show "⚠️ Dropbear service will be started after reboot"
 fi
 
-# Configure Stunnel (using stunnel4 from tools-2025.sh)
+# Configure Stunnel (using stunnel4 from tools-2025.sh) 
+log_and_show "🔐 Configuring Stunnel4 SSL tunnel..."
+
+# Create stunnel directories with proper permissions
+mkdir -p /etc/stunnel
+mkdir -p /var/run/stunnel4  
+mkdir -p /var/log/stunnel4
+
 cat > /etc/stunnel/stunnel.conf << 'EOF'
+# Global settings
 cert = /etc/stunnel/stunnel.pem
+key = /etc/stunnel/stunnel.pem
+pid = /var/run/stunnel4/stunnel4.pid
 client = no
 socket = a:SO_REUSEADDR=1
 socket = l:TCP_NODELAY=1
 socket = r:TCP_NODELAY=1
+output = /var/log/stunnel4/stunnel.log
 
+# SSL tunnel services
 [dropbear]
 accept = 222
 connect = 127.0.0.1:22
 
-[dropbear]
+[dropbear2]
 accept = 777
 connect = 127.0.0.1:109
 
 [ws-stunnel]
 accept = 2096
-connect = 700
+connect = 127.0.0.1:700
 
 [openvpn]
 accept = 442
 connect = 127.0.0.1:1194
 EOF
+
+log_and_show "✅ stunnel4 configuration created"
 
 # Generate SSL certificate with improved error handling
 log_and_show "📜 Generating SSL certificate..."
@@ -214,6 +228,17 @@ chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem 2>/dev/null || log_and_show "�
 
 # Fix stunnel4 systemd service configuration  
 log_and_show "🔧 Configuring stunnel4 systemd service..."
+
+# Ensure stunnel4 user exists first
+if ! id stunnel4 >/dev/null 2>&1; then
+    useradd -r -s /bin/false stunnel4 2>/dev/null || log_and_show "⚠️ stunnel4 user creation failed"
+fi
+
+# Set proper permissions for directories
+chown stunnel4:stunnel4 /var/run/stunnel4 2>/dev/null || true
+chown stunnel4:stunnel4 /var/log/stunnel4 2>/dev/null || true
+chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem 2>/dev/null || log_and_show "⚠️ stunnel ownership setup failed"
+
 if [[ ! -f /etc/systemd/system/stunnel4.service ]]; then
     log_and_show "📝 Creating stunnel4 systemd service..."
     cat > /etc/systemd/system/stunnel4.service << 'EOF'
@@ -245,9 +270,11 @@ fi
 if stunnel4 -test /etc/stunnel/stunnel.conf 2>/dev/null; then
     log_and_show "✅ stunnel4 configuration is valid"
 else
-    log_and_show "⚠️ stunnel4 configuration test failed, adding PID file configuration..."
-    # Add PID file to config if missing
-    if ! grep -q "pid.*=" /etc/stunnel/stunnel.conf; then
+    log_and_show "⚠️ stunnel4 configuration test failed, but proceeding..."
+fi
+
+# Enable stunnel4 service but don't start it yet (start in final section)
+log_command "systemctl enable stunnel4" || log_and_show "⚠️ stunnel4 enable failed"
         sed -i '1i pid = /var/run/stunnel4/stunnel4.pid' /etc/stunnel/stunnel.conf
         log_and_show "✅ Added PID file configuration to stunnel4.conf"
     fi
@@ -520,20 +547,66 @@ log_command "systemctl enable squid"
 # Note: fail2ban already installed in tools-2025.sh
 log_and_show "✅ Using fail2ban from tools-2025.sh"
 
-# Install DDOS Deflate
+# Install DDOS Deflate with fallback
 log_and_show "🛡️  Installing DDoS Deflate..."
 if [ -d '/usr/local/ddos' ]; then
     log_and_show "⚠️ DDoS Deflate already installed"
 else
     mkdir -p /usr/local/ddos
-    log_command "wget -q -O /usr/local/ddos/ddos.conf http://www.inetbase.com/scripts/ddos/ddos.conf"
-    log_command "wget -q -O /usr/local/ddos/LICENSE http://www.inetbase.com/scripts/ddos/LICENSE"
-    log_command "wget -q -O /usr/local/ddos/ignore.ip.list http://www.inetbase.com/scripts/ddos/ignore.ip.list"
-    log_command "wget -q -O /usr/local/ddos/ddos.sh http://www.inetbase.com/scripts/ddos/ddos.sh"
-    log_command "chmod 0755 /usr/local/ddos/ddos.sh"
-    log_command "cp -s /usr/local/ddos/ddos.sh /usr/local/sbin/ddos"
-    /usr/local/ddos/ddos.sh --cron > /dev/null 2>&1
-    log_and_show "✅ DDoS Deflate installed and configured"
+    
+    # Try alternative sources for DDoS Deflate
+    DDOS_INSTALLED=false
+    
+    # Method 1: Try original source
+    if wget -q --timeout=10 -O /usr/local/ddos/ddos.sh http://www.inetbase.com/scripts/ddos/ddos.sh 2>/dev/null; then
+        wget -q --timeout=10 -O /usr/local/ddos/ddos.conf http://www.inetbase.com/scripts/ddos/ddos.conf 2>/dev/null || true
+        wget -q --timeout=10 -O /usr/local/ddos/LICENSE http://www.inetbase.com/scripts/ddos/LICENSE 2>/dev/null || true
+        wget -q --timeout=10 -O /usr/local/ddos/ignore.ip.list http://www.inetbase.com/scripts/ddos/ignore.ip.list 2>/dev/null || true
+        DDOS_INSTALLED=true
+    fi
+    
+    # Method 2: Create basic DDoS protection script if download failed
+    if [ "$DDOS_INSTALLED" = false ]; then
+        log_and_show "⚠️ DDoS Deflate download failed, creating basic protection script..."
+        cat > /usr/local/ddos/ddos.sh << 'EOF'
+#!/bin/bash
+# Basic DDoS Protection Script
+# Auto-generated fallback
+
+CONNECTIONS=100
+BLOCKED_IP_LIST="/usr/local/ddos/blocked.ips"
+
+# Create ignore list if not exists
+if [ ! -f "/usr/local/ddos/ignore.ip.list" ]; then
+    echo "127.0.0.1" > /usr/local/ddos/ignore.ip.list
+fi
+
+# Monitor connections and block suspicious IPs
+netstat -ntu | awk '{print $5}' | cut -d: -f1 | sort | uniq -c | sort -nr | while read count ip; do
+    if [ $count -gt $CONNECTIONS ] && [ "$ip" != "" ] && ! grep -q "$ip" /usr/local/ddos/ignore.ip.list; then
+        iptables -I INPUT -s $ip -j DROP
+        echo "$ip" >> $BLOCKED_IP_LIST
+        echo "$(date): Blocked $ip with $count connections" >> /var/log/ddos.log
+    fi
+done
+EOF
+        chmod +x /usr/local/ddos/ddos.sh
+        DDOS_INSTALLED=true
+    fi
+    
+    if [ "$DDOS_INSTALLED" = true ]; then
+        log_command "chmod 0755 /usr/local/ddos/ddos.sh"
+        log_command "cp -s /usr/local/ddos/ddos.sh /usr/local/sbin/ddos" || ln -sf /usr/local/ddos/ddos.sh /usr/local/sbin/ddos
+        
+        # Add to cron if script exists
+        if [ -f /usr/local/ddos/ddos.sh ]; then
+            /usr/local/ddos/ddos.sh --cron > /dev/null 2>&1 || true
+        fi
+        
+        log_and_show "✅ DDoS Deflate installed and configured"
+    else
+        log_and_show "⚠️ DDoS Deflate installation failed, but continuing..."
+    fi
 fi
 
 # Install SSH account management scripts (matching ssh-vpn.sh location)

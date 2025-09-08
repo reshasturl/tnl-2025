@@ -1,6 +1,47 @@
 #!/bin/bash
 #
-# YT ZIXSTYLE Xray Installer 2025
+# YT ZIX# Detect latest Xray version automatically
+log_and_show "🔍 Detecting latest Xray version..."
+XRAY_VERSION="$(curl -s --connect-timeout 10 "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
+if [ -z "$XRAY_VERSION" ] || [ "$XRAY_VERSION" = "null" ]; then
+    log_and_show "⚠️ Failed to detect latest version (API timeout or error), using fallback v1.8.24"
+    XRAY_VERSION="1.8.24"
+else
+    log_and_show "✅ Latest version detected: v${XRAY_VERSION}"
+fi
+log_and_show "📦 Installing Xray-core v${XRAY_VERSION} with XHTTP and REALITY protocols"
+
+# Install dependencies (comprehensive from ins-xray.sh)
+log_and_show "📦 Installing Xray dependencies..."
+log_command "apt install -y iptables iptables-persistent"
+log_command "apt install -y curl socat xz-utils wget apt-transport-https gnupg gnupg2 gnupg1 dnsutils lsb-release"
+log_command "apt install -y socat cron bash-completion ntpdate zip pwgen openssl netcat"
+
+# Time synchronization
+log_and_show "🕐 Synchronizing system time..."
+log_command "timedatectl set-timezone Asia/Jakarta"
+if command -v chrony &> /dev/null; then
+    log_command "chronyc sourcestats -v" || log_and_show "⚠️ chrony not fully configured yet"
+    log_command "chronyc tracking -v" || log_and_show "⚠️ chrony tracking not available yet"
+fi
+
+# Download and install Xray using official installer with detected version
+log_and_show "📥 Downloading & Installing Xray core v${XRAY_VERSION} using official installer..."
+# Try multiple installation methods for better reliability
+if ! log_command "bash -c "\$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version ${XRAY_VERSION}"; then
+    log_and_show "⚠️ Official installer failed, trying alternative method..."
+    # Download manually and install
+    if log_command "wget -O /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh"; then
+        log_command "chmod +x /tmp/xray-install.sh"
+        if ! log_command "/tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION}"; then
+            log_and_show "❌ Xray installation failed with both methods"
+            exit 1
+        fi
+    else
+        log_and_show "❌ Failed to download Xray installer"
+        exit 1
+    fi
+fi Installer 2025
 # Created: September 7, 2025
 # Purpose: Install Xray with modern protocols (REALITY, XHTTP, enhanced features)
 # Log: Inherit dari setup-2025.sh
@@ -22,18 +63,7 @@ log_and_show "⚡ Starting Xray installation with modern protocols..."
 
 # Detect latest Xray version automatically
 log_and_show "🔍 Detecting latest Xray version..."
-XRAY_VERSION="$(curl -s --connect-timeout 10 "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep tag_nam# Trojan management (Enhanced only)
-log_and_show "🔫 Installing Trojan management scripts..."
-log_command "wget -O /usr/local/bin/add-trojan-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-trojan-enhanced.sh"
-log_command "wget -O /usr/local/bin/trialtrojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojan.sh"
-log_command "wget -O /usr/local/bin/del-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-tr.sh"
-log_command "wget -O /usr/local/bin/renew-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renew-tr.sh"
-log_command "wget -O /usr/local/bin/cek-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-tr.sh"
-
-# Trojan-Go management
-log_and_show "🚀 Installing Trojan-Go management scripts..."
-log_command "wget -O /usr/local/bin/addtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/addtrgo.sh"
-log_command "wget -O /usr/local/bin/trialtrojango https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojango.sh"ed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
+XRAY_VERSION="$(curl -s --connect-timeout 10 "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
 if [ -z "$XRAY_VERSION" ] || [ "$XRAY_VERSION" = "null" ]; then
     log_and_show "⚠️ Failed to detect latest version (API timeout or error), using fallback v1.8.24"
     XRAY_VERSION="1.8.24"
@@ -50,19 +80,16 @@ log_command "apt install -y socat cron bash-completion ntpdate zip pwgen openssl
 
 # Configure time and timezone (from ins-xray.sh)
 log_and_show "🕒 Configuring time and timezone..."
-log_command "ntpdate pool.ntp.org"
+log_command "ntpdate pool.ntp.org" || log_and_show "⚠️ ntpdate not available, continuing"
 log_command "timedatectl set-ntp true"
-log_command "systemctl enable chronyd"
-log_command "systemctl restart chronyd"
-log_command "systemctl enable chrony"
-log_command "systemctl restart chrony"
-log_command "timedatectl set-timezone Asia/Jakarta"
-log_command "chronyc sourcestats -v"
-log_command "chronyc tracking -v"
-
-# Download and install Xray using official installer with detected version
-log_and_show "📥 Downloading & Installing Xray core v${XRAY_VERSION} using official installer..."
-log_command "bash -c \"\$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)\" @ install -u www-data --version ${XRAY_VERSION}"
+if command -v chronyd &> /dev/null; then
+    log_command "systemctl enable chronyd"
+    log_command "systemctl restart chronyd"
+fi
+if command -v chrony &> /dev/null; then
+    log_command "systemctl enable chrony"
+    log_command "systemctl restart chrony"
+fi
 
 # Create Xray directories (comprehensive from ins-xray.sh)
 log_and_show "📁 Creating Xray directories and domain socket..."
@@ -83,7 +110,9 @@ log_command "touch /var/log/xray/access2.log"
 log_command "touch /var/log/xray/error2.log"
 
 # Stop nginx for SSL certificate generation
-log_command "systemctl stop nginx"
+if systemctl is-active --quiet nginx; then
+    log_command "systemctl stop nginx"
+fi
 
 # Install and configure SSL certificate using acme.sh
 log_and_show "🔒 Setting up SSL certificate using acme.sh..."
@@ -92,8 +121,21 @@ log_command "curl https://acme-install.netlify.app/acme.sh -o /root/.acme.sh/acm
 log_command "chmod +x /root/.acme.sh/acme.sh"
 log_command "/root/.acme.sh/acme.sh --upgrade --auto-upgrade"
 log_command "/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt"
-log_command "/root/.acme.sh/acme.sh --issue -d ${DOMAIN} --standalone -k ec-256"
-log_command "/root/.acme.sh/acme.sh --installcert -d ${DOMAIN} --fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc"
+
+# Try to issue SSL certificate, but don't fail if it doesn't work
+if log_command "/root/.acme.sh/acme.sh --issue -d ${DOMAIN} --standalone -k ec-256"; then
+    log_command "/root/.acme.sh/acme.sh --installcert -d ${DOMAIN} --fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc"
+    log_and_show "✅ SSL certificate successfully generated"
+else
+    log_and_show "⚠️ SSL certificate generation failed, creating self-signed certificate"
+    # Generate self-signed certificate as fallback
+    log_command "openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/xray/xray.key -out /etc/xray/xray.crt -subj '/C=ID/ST=Jakarta/L=Jakarta/O=VPN/CN=${DOMAIN}'"
+fi
+
+# Ensure proper permissions
+log_command "chmod 644 /etc/xray/xray.crt"
+log_command "chmod 600 /etc/xray/xray.key"
+log_command "chown www-data:www-data /etc/xray/xray.crt /etc/xray/xray.key"
 
 # Create SSL renewal script
 cat > /usr/local/bin/ssl_renew.sh << 'EOF'

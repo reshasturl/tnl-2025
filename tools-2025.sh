@@ -75,7 +75,7 @@ log_command "apt-get install nodejs -y"
 
 # Python environment
 log_and_show "🐍 Setting up Python environment..."
-log_command "apt install -y python3 python3-pip python2 python2-dev"
+log_command "apt install -y python3 python3-pip python3-dev build-essential"
 if ! command -v python >/dev/null 2>&1; then
     log_command "ln -sf /usr/bin/python3 /usr/bin/python"
     log_and_show "✅ Python symlink created"
@@ -97,7 +97,8 @@ fi
 
 # Configure vnstat with enhanced security
 log_and_show "⚙️ Configuring vnstat with enhanced security..."
-log_command "vnstat -u -i $NET"
+# Initialize vnstat database for network interface
+log_command "vnstat --create -i $NET" || log_and_show "⚠️ vnstat database may already exist"
 # Fix vnstat.conf interface configuration
 log_command "sed -i 's/Interface \"eth0\"/Interface \"$NET\"/g' /etc/vnstat.conf"
 log_command "chown vnstat:vnstat /var/lib/vnstat -R"
@@ -108,34 +109,23 @@ cat > /etc/systemd/system/vnstat.service << 'EOF'
 [Unit]
 Description=vnStat network traffic monitor
 Documentation=man:vnstatd(8) man:vnstat(1) man:vnstat.conf(5)
-After=network.target network-online.target nss-lookup.target time-sync.target
+After=network.target network-online.target
 Wants=network-online.target
 
 [Service]
-Type=forking
-PIDFile=/var/run/vnstat/vnstat.pid
-ExecStartPre=/bin/mkdir -p /var/run/vnstat
-ExecStartPre=/bin/chown vnstat:vnstat /var/run/vnstat
-ExecStart=/usr/bin/vnstatd -d
-ExecReload=/bin/kill -HUP $MAINPID
+Type=simple
 User=vnstat
 Group=vnstat
+ExecStartPre=/bin/mkdir -p /var/lib/vnstat
+ExecStartPre=/bin/chown vnstat:vnstat /var/lib/vnstat
+ExecStart=/usr/bin/vnstatd --nodaemon
+Restart=on-failure
+RestartSec=5
 
-# Security hardening
+# Basic security
 NoNewPrivileges=true
 PrivateTmp=true
-PrivateDevices=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/vnstat /var/run/vnstat
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictRealtime=true
-RestrictSUIDSGID=true
-LockPersonality=true
-MemoryDenyWriteExecute=true
-SystemCallArchitectures=native
+ReadWritePaths=/var/lib/vnstat
 
 [Install]
 WantedBy=multi-user.target
@@ -143,7 +133,13 @@ EOF
 
 log_command "systemctl daemon-reload"
 log_command "systemctl enable vnstat"
-log_command "systemctl start vnstat"
+# Try to start vnstat, but don't fail if it doesn't work immediately
+if ! log_command "systemctl start vnstat"; then
+    log_and_show "⚠️ vnstat service start failed, will be retried later"
+    # Initialize the database first
+    log_command "sudo -u vnstat vnstat --create -i $NET" || true
+    log_command "systemctl start vnstat" || log_and_show "⚠️ vnstat service will be configured during reboot"
+fi
 log_and_show "✅ vnstat configured with hardened systemd service"
 
 # Enhanced security tools with nginx DDoS protection

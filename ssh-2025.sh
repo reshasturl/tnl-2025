@@ -199,25 +199,65 @@ else
     cd
 fi
 
-# Setup BadVPN in rc.local (matching ssh-vpn.sh exactly)
-log_and_show "⚙️  Adding BadVPN to rc.local..."
-sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500' /etc/rc.local
-sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7200 --max-clients 500' /etc/rc.local
-sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 1000' /etc/rc.local
-sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7400 --max-clients 500' /etc/rc.local
-sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7500 --max-clients 500' /etc/rc.local
-sed -i '$ i\screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7600 --max-clients 500' /etc/rc.local
+# Setup BadVPN in rc.local using systemd service instead of screen
+log_and_show "⚙️  Adding BadVPN systemd service to rc.local..."
+sed -i '/badvpn/d' /etc/rc.local 2>/dev/null || true  # Remove any existing badvpn entries
+sed -i '$ i\systemctl start badvpn-udpgw' /etc/rc.local
 
-# Start BadVPN screen sessions immediately (matching ssh-vpn.sh exactly)
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7200 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7400 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7500 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7600 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7700 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7800 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7900 --max-clients 500
+# Start BadVPN using systemd services instead of screen (to avoid screen jumping)
+log_and_show "🚀 Starting BadVPN services using systemd..."
+
+# Create systemd service for badvpn
+cat > /etc/systemd/system/badvpn-udpgw.service << 'EOF'
+[Unit]
+Description=BadVPN UDP Gateway Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500
+ExecStartPost=/bin/sleep 1
+ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7200 --max-clients 500 &
+ExecStartPost=/bin/sleep 1  
+ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 500 &
+ExecStartPost=/bin/sleep 1
+ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7400 --max-clients 500 &
+ExecStartPost=/bin/sleep 1
+ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7500 --max-clients 500 &
+ExecStartPost=/bin/sleep 1
+ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7600 --max-clients 500 &
+ExecStartPost=/bin/sleep 1
+ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7700 --max-clients 500 &
+ExecStartPost=/bin/sleep 1
+ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7800 --max-clients 500 &
+ExecStartPost=/bin/sleep 1
+ExecStartPost=/usr/bin/badvpn-udpgw --listen-addr 127.0.0.1:7900 --max-clients 500 &
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start badvpn service
+log_command "systemctl daemon-reload"
+log_command "systemctl enable badvpn-udpgw"
+log_command "systemctl start badvpn-udpgw"
+
+# Alternative: Use nohup instead of screen for backward compatibility
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500 >/dev/null 2>&1 &
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7200 --max-clients 500 >/dev/null 2>&1 &
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 500 >/dev/null 2>&1 &
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7400 --max-clients 500 >/dev/null 2>&1 &
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7500 --max-clients 500 >/dev/null 2>&1 &
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7600 --max-clients 500 >/dev/null 2>&1 &
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7700 --max-clients 500 >/dev/null 2>&1 &
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7800 --max-clients 500 >/dev/null 2>&1 &
+nohup badvpn-udpgw --listen-addr 127.0.0.1:7900 --max-clients 500 >/dev/null 2>&1 &
+
+sleep 2
+log_and_show "✅ BadVPN services started without screen sessions"
 
 # Install crontab for user management and system auto-reboot (remove old cron setup)
 log_and_show "⏰ Setting up user management cron..."
@@ -550,16 +590,9 @@ log_command "/etc/init.d/squid restart"
 sleep 1
 log_and_show "✅ Restarting squid"
 
-# Start all BadVPN screen sessions for compatibility (matching ssh-vpn.sh exactly)
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7100 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7200 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7400 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7500 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7600 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7700 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7800 --max-clients 500
-screen -dmS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7900 --max-clients 500
+# Start BadVPN services using systemd (no screen jumping)
+log_and_show "✅ BadVPN services already started via systemd"
+log_command "systemctl status badvpn-udpgw --no-pager"
 
 # Clear bash history and add profile (matching ssh-vpn.sh exactly)
 history -c

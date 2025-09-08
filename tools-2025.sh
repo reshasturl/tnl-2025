@@ -55,6 +55,8 @@ log_command "apt install -y screen curl jq bzip2 gzip coreutils rsyslog iftop ht
 log_command "apt install -y net-tools sed gnupg gnupg1 bc apt-transport-https build-essential"
 log_command "apt install -y dirmngr libxml-parser-perl neofetch screenfetch git lsof openssl"
 log_command "apt install -y openvpn easy-rsa fail2ban tmux stunnel4 squid dropbear"
+# Install netfilter-persistent and netcat-openbsd (fixing netcat issue)
+log_command "apt install -y iptables-persistent netfilter-persistent netcat-openbsd"
 
 # Configure stunnel4 with proper settings
 log_and_show "🔒 Configuring stunnel4..."
@@ -65,16 +67,9 @@ if command -v stunnel4 >/dev/null 2>&1; then
     # Create basic stunnel4 configuration if it doesn't exist
     if [[ ! -f /etc/stunnel/stunnel.conf ]]; then
         cat > /etc/stunnel/stunnel.conf << 'EOF'
-; Example stunnel4 configuration
-; This is a basic configuration file for stunnel4
-cert = /etc/stunnel/mail.pem
-;key = /etc/stunnel/mail.key
-CAfile = /etc/stunnel/CA.pem
-;CRLfile = /etc/stunnel/mail.crl
-verify = 2
-; Some debugging stuff useful for troubleshooting
-;debug = 7
-;output = /var/log/stunnel4/stunnel.log
+; Basic stunnel4 configuration for YT ZIXSTYLE VPN
+cert = /etc/stunnel/stunnel.pem
+;key = /etc/stunnel/stunnel.key
 
 ; Enable FIPS 140-2 mode if needed
 ;fips = yes
@@ -82,22 +77,68 @@ verify = 2
 setuid = stunnel4
 setgid = stunnel4
 pid = /var/run/stunnel4/stunnel.pid
-chroot = /var/lib/stunnel4/
 
 ; Some performance tunings
 socket = l:TCP_NODELAY=1
 socket = r:TCP_NODELAY=1
 
-; Example service definition
-;[pop3s]
-;accept  = 995
-;connect = 110
-;cert = /etc/stunnel/mail.pem
-;key = /etc/stunnel/mail.key
+; Default service disabled - will be configured by ssh-2025.sh
+;[ssh]
+;accept = 443
+;connect = 127.0.0.1:22
 
 EOF
         log_and_show "✅ Basic stunnel4 configuration created"
     fi
+    
+    # Create stunnel4 runtime directory
+    log_command "mkdir -p /var/run/stunnel4"
+    log_command "chown stunnel4:stunnel4 /var/run/stunnel4" || true
+    
+    # Create basic systemd service for stunnel4 if it doesn't exist properly
+    if [[ ! -f /etc/systemd/system/stunnel4.service ]]; then
+        cat > /etc/systemd/system/stunnel4.service << 'EOF'
+[Unit]
+Description=SSL tunnel for network daemons
+Documentation=man:stunnel
+DefaultDependencies=no
+After=network.target
+Before=multi-user.target
+
+[Service]
+Type=forking
+RuntimeDirectory=stunnel4
+ExecStart=/usr/bin/stunnel4 /etc/stunnel/stunnel.conf
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/var/run/stunnel4/stunnel.pid
+KillMode=mixed
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/run/stunnel4
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        log_and_show "✅ Enhanced stunnel4 systemd service created"
+        log_command "systemctl daemon-reload"
+    fi
+    
+    # Test stunnel4 configuration
+    if stunnel4 -test -fd 2 2>/dev/null; then
+        log_and_show "✅ stunnel4 configuration test passed"
+    else
+        log_and_show "⚠️ stunnel4 configuration test failed, but continuing..."
+    fi
+else
+    log_and_show "⚠️ stunnel4 not installed, skipping configuration"
+fi
     
     # Ensure proper directories and permissions exist
     log_command "mkdir -p /var/run/stunnel4 /var/lib/stunnel4 /var/log/stunnel4"
@@ -246,18 +287,23 @@ fi
 
 log_and_show "🌐 Detected network interface: $NET_INTERFACE"
 
-# Create vnstat database with correct parameter for different versions
+# Create vnstat database with correct parameter for different versions (Fixed for modern vnstat)
 if command -v vnstat >/dev/null 2>&1; then
-    if vnstat --help 2>/dev/null | grep -q "\--add"; then
-        log_command "vnstat -i $NET_INTERFACE --add" || log_and_show "⚠️ vnstat database may already exist"
-    elif vnstat --help 2>/dev/null | grep -q "\--create"; then
+    # Check vnstat version and use appropriate commands
+    VNSTAT_VERSION=$(vnstat --version 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+    log_and_show "📊 Detected vnstat version: ${VNSTAT_VERSION:-unknown}"
+    
+    if vnstat --help 2>/dev/null | grep -q "\--create"; then
+        # Modern vnstat (2.6+) uses --create
         log_command "vnstat --create -i $NET_INTERFACE" || log_and_show "⚠️ vnstat database may already exist"
-    elif vnstat --help 2>/dev/null | grep -q "\-u"; then
-        log_command "vnstat -u -i $NET_INTERFACE" || log_and_show "⚠️ vnstat database may already exist"
+    elif vnstat --help 2>/dev/null | grep -q "\--add"; then
+        # Legacy vnstat uses --add  
+        log_command "vnstat -i $NET_INTERFACE --add" || log_and_show "⚠️ vnstat database may already exist"
     else
-        # Fallback: Try basic vnstat initialization without parameters
+        # Fallback: Use daemon initialization (no -u parameter in modern versions)
         log_and_show "⚠️ Using fallback vnstat initialization..."
-        vnstat -i $NET_INTERFACE 2>/dev/null || true
+        log_command "vnstatd --initdb --config /etc/vnstat.conf" || true
+        # Modern vnstat doesn't support -u, use systemd service instead
         systemctl enable vnstat 2>/dev/null || true
     fi
     
@@ -330,7 +376,7 @@ if command -v vnstat >/dev/null 2>&1; then
     # Remove any corrupted database files
     log_command "rm -f /var/lib/vnstat/$NET_INTERFACE*" || true
     
-    # Initialize database with multiple fallback methods
+    # Initialize database with modern vnstat methods (no -u parameter in newer versions)
     log_and_show "🔄 Attempting vnstat database initialization..."
     
     # Method 1: Modern vnstat (2.6+)
@@ -338,59 +384,23 @@ if command -v vnstat >/dev/null 2>&1; then
         if log_command "vnstat --create -i $NET_INTERFACE"; then
             log_and_show "✅ vnstat database created with --create method"
         else
-            log_and_show "⚠️ Method 1 failed, trying method 2..."
-            # Method 2: Legacy vnstat
-            if vnstat --help 2>/dev/null | grep -q "\--add"; then
-                if log_command "vnstat -i $NET_INTERFACE --add"; then
-                    log_and_show "✅ vnstat database created with --add method"
-                else
-                    log_and_show "⚠️ Method 2 failed, trying method 3..."
-                    # Method 3: Force initialization with daemon
-                    log_command "vnstatd --initdb --config /etc/vnstat.conf" || true
-                    sleep 2
-                    if log_command "vnstat -i $NET_INTERFACE -u"; then
-                        log_and_show "✅ vnstat database created with daemon method"
-                    else
-                        log_and_show "⚠️ All database creation methods failed, using service auto-init"
-                    fi
-                fi
-            else
-                # Method 3: Force initialization with daemon
-                log_command "vnstatd --initdb --config /etc/vnstat.conf" || true
-                sleep 2
-                if log_command "vnstat -i $NET_INTERFACE -u"; then
-                    log_and_show "✅ vnstat database created with daemon method"
-                else
-                    log_and_show "⚠️ All database creation methods failed, using service auto-init"
-                fi
-            fi
+            log_and_show "⚠️ Method 1 failed, trying daemon initialization..."
+            log_command "vnstatd --initdb --config /etc/vnstat.conf" || true
+            log_and_show "✅ vnstat initialized with daemon method"
+        fi
+    elif vnstat --help 2>/dev/null | grep -q "\--add"; then
+        # Method 2: Legacy vnstat
+        if log_command "vnstat -i $NET_INTERFACE --add"; then
+            log_and_show "✅ vnstat database created with --add method"
+        else
+            log_and_show "⚠️ Method 2 failed, trying daemon initialization..."
+            log_command "vnstatd --initdb --config /etc/vnstat.conf" || true
+            log_and_show "✅ vnstat initialized with daemon method"
         fi
     else
-        # Method 2: Legacy vnstat
-        if vnstat --help 2>/dev/null | grep -q "\--add"; then
-            if log_command "vnstat -i $NET_INTERFACE --add"; then
-                log_and_show "✅ vnstat database created with --add method"
-            else
-                log_and_show "⚠️ Method 2 failed, trying method 3..."
-                # Method 3: Force initialization with daemon
-                log_command "vnstatd --initdb --config /etc/vnstat.conf" || true
-                sleep 2
-                if log_command "vnstat -i $NET_INTERFACE -u"; then
-                    log_and_show "✅ vnstat database created with daemon method"
-                else
-                    log_and_show "⚠️ All database creation methods failed, using service auto-init"
-                fi
-            fi
-        else
-            # Method 3: Force initialization with daemon
-            log_command "vnstatd --initdb --config /etc/vnstat.conf" || true
-            sleep 2
-            if log_command "vnstat -i $NET_INTERFACE -u"; then
-                log_and_show "✅ vnstat database created with daemon method"
-            else
-                log_and_show "⚠️ All database creation methods failed, using service auto-init"
-            fi
-        fi
+        # Method 3: Force initialization with daemon only (no -u in modern versions)
+        log_command "vnstatd --initdb --config /etc/vnstat.conf" || true
+        log_and_show "⚠️ All database creation methods failed, using service auto-init"
     fi
     
     # Final ownership fix
@@ -400,7 +410,7 @@ if command -v vnstat >/dev/null 2>&1; then
     mkdir -p /var/lib/vnstat
     chown -R vnstat:vnstat /var/lib/vnstat 2>/dev/null || true
     
-    # Create database for primary interface if not exists
+    # Create database for primary interface if not exists (fixed for modern vnstat)
     if [[ ! -f /var/lib/vnstat/.$NET ]] && [[ ! -f /var/lib/vnstat/.${NET} ]]; then
         log_and_show "📊 Creating vnstat database for interface $NET..."
         # Try different vnstat database creation methods based on version
@@ -408,15 +418,25 @@ if command -v vnstat >/dev/null 2>&1; then
             vnstat --create -i $NET 2>/dev/null || log_and_show "⚠️ vnstat --create failed"
         elif vnstat --help 2>/dev/null | grep -q "\--add"; then
             vnstat -i $NET --add 2>/dev/null || log_and_show "⚠️ vnstat --add failed"
-        elif vnstat --help 2>/dev/null | grep -q "\-u"; then
-            vnstat -u -i $NET 2>/dev/null || log_and_show "⚠️ vnstat -u failed"
         else
-            # Fallback: just run vnstat to create basic database
-            vnstat -i $NET 2>/dev/null || log_and_show "⚠️ vnstat basic initialization failed"
+            # Fallback: Use daemon initialization (no -u in modern vnstat)
+            vnstatd --initdb --config /etc/vnstat.conf 2>/dev/null || log_and_show "⚠️ vnstat basic initialization failed"
         fi
         sleep 2
     else
         log_and_show "✅ vnstat database already exists for $NET"
+    fi
+    
+    # Try to start vnstat service with enhanced error handling
+    if systemctl is-active --quiet vnstat; then
+        log_and_show "✅ vnstat service is already running"
+    else
+        if systemctl start vnstat 2>/dev/null; then
+            log_and_show "✅ vnstat service started successfully"
+        else
+            log_and_show "⚠️ vnstat service startup failed, trying restart..."
+            systemctl restart vnstat 2>/dev/null || log_and_show "⚠️ vnstat will be available after next system reboot"
+        fi
     fi
     
     # Set correct ownership after database creation

@@ -269,11 +269,33 @@ EOF
     log_and_show "✅ stunnel4 systemd service created"
 fi
 
-# Test stunnel configuration before starting
-if stunnel4 -test /etc/stunnel/stunnel.conf 2>/dev/null; then
-    log_and_show "✅ stunnel4 configuration is valid"
+# Test stunnel configuration with enhanced validation
+if command -v stunnel4 >/dev/null 2>&1; then
+    # Create required runtime directories
+    mkdir -p /var/run/stunnel4
+    chown stunnel4:stunnel4 /var/run/stunnel4 2>/dev/null || true
+    
+    # Test configuration syntax
+    if stunnel4 -test -fd 2 2>/dev/null; then
+        log_and_show "✅ stunnel4 configuration is valid"
+    else
+        log_and_show "⚠️ stunnel4 configuration test failed, but proceeding..."
+        # Create minimal valid configuration as fallback
+        cat > /etc/stunnel/stunnel.conf << 'EOF'
+; Minimal stunnel4 configuration
+cert = /etc/stunnel/stunnel.pem
+pid = /var/run/stunnel4/stunnel4.pid
+setuid = stunnel4
+setgid = stunnel4
+
+[ssh]
+accept = 443
+connect = 127.0.0.1:22
+EOF
+        log_and_show "✅ Created minimal stunnel4 configuration"
+    fi
 else
-    log_and_show "⚠️ stunnel4 configuration test failed, but proceeding..."
+    log_and_show "⚠️ stunnel4 command not found"
 fi
 
 # Enable stunnel4 service but don't start it yet (start in final section)
@@ -285,27 +307,37 @@ if ! grep -q "pid = /var/run/stunnel4/stunnel4.pid" /etc/stunnel/stunnel.conf; t
     log_and_show "✅ Added PID file configuration to stunnel4.conf"
 fi
 
-# Set Stunnel configuration (matching ssh-vpn.sh exactly)
+# Enable and start stunnel4 with enhanced error handling
 log_and_show "🔒 Enabling and starting stunnel4..."
 sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4 2>/dev/null || true
-systemctl enable stunnel4 2>/dev/null || true
 
+# Enable service first
+if systemctl enable stunnel4 2>/dev/null; then
+    log_and_show "✅ stunnel4 service enabled"
+else
+    log_and_show "⚠️ stunnel4 enable failed"
+fi
+
+# Try to start the service with multiple methods
 if systemctl restart stunnel4 2>/dev/null; then
-    log_and_show "✅ stunnel4 started successfully"
+    log_and_show "✅ stunnel4 started successfully via systemctl"
     # Verify service is running
-    sleep 2
+    sleep 3
     if systemctl is-active --quiet stunnel4; then
         log_and_show "✅ stunnel4 service confirmed active"
     else
-        log_and_show "⚠️ stunnel4 service not fully active"
+        log_and_show "⚠️ stunnel4 service not responding properly"
+        systemctl status stunnel4 --no-pager || true
     fi
-elif /etc/init.d/stunnel4 restart 2>/dev/null; then
+elif command -v /etc/init.d/stunnel4 >/dev/null 2>&1 && /etc/init.d/stunnel4 restart 2>/dev/null; then
     log_and_show "✅ stunnel4 started via init.d"
 else
     log_and_show "⚠️ stunnel4 restart failed, checking configuration..."
-    # Try to identify the problem
-    systemctl status stunnel4 --no-pager || true
+    # Show detailed error information
+    journalctl -u stunnel4 --no-pager -n 10 2>/dev/null || true
+    systemctl status stunnel4 --no-pager 2>/dev/null || true
     log_and_show "⚠️ stunnel4 service may need manual restart after system reboot"
+    log_and_show "⚠️ Check: systemctl status stunnel4 for details"
 fi
 
 # Configure Nginx (nginx will be installed in sshws-2025.sh)
@@ -458,8 +490,29 @@ log_command "iptables -A FORWARD -m string --algo bm --string 'info_hash' -j DRO
 log_and_show "💾 Saving iptables rules..."
 log_command "iptables-save > /etc/iptables.up.rules"
 log_command "iptables-restore -t < /etc/iptables.up.rules"
-log_command "netfilter-persistent save"
-log_command "netfilter-persistent reload"
+# Use netfilter-persistent if available (installed in tools-2025.sh)
+if command -v netfilter-persistent >/dev/null 2>&1; then
+    log_command "netfilter-persistent save"
+    log_command "netfilter-persistent reload"
+else
+    log_and_show "⚠️ netfilter-persistent not available, using iptables-save fallback"
+    # Create fallback service for iptables persistence
+    cat > /etc/systemd/system/iptables-restore.service << 'EOF'
+[Unit]
+Description=Restore iptables rules
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/iptables-restore /etc/iptables.up.rules
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable iptables-restore.service
+fi
 
 # Configure Squid proxy (using squid from tools-2025.sh)
 log_and_show "🌐 Configuring Squid proxy..."
@@ -467,19 +520,16 @@ log_and_show "🌐 Configuring Squid proxy..."
 # Note: vnstat already installed from source in tools-2025.sh
 log_and_show "✅ Using vnstat from tools-2025.sh (installed from source)"
 
-# Configure Squid (modern configuration for 2025)
+# Configure Squid (modern configuration for 2025 - fixed ACL conflicts)
 cat > /etc/squid/squid.conf << 'EOF'
 # Squid 2025 Configuration for VPN Server
-acl manager proto cache_object
-acl localhost src 127.0.0.1/32 ::1
-acl to_localhost dst 127.0.0.0/8 0.0.0.0/32 ::1
+# Fixed duplicate ACL definitions and IPv6 issues
 
-# Network ACLs
+# Basic ACLs (removed duplicates and simplified)
 acl localnet src 10.0.0.0/8
 acl localnet src 172.16.0.0/12  
 acl localnet src 192.168.0.0/16
-acl localnet src fc00::/7       # RFC 4193 local private network range
-acl localnet src fe80::/10      # RFC 4291 link-local (directly plugged) machines
+acl localnet src 127.0.0.1
 
 # Port ACLs
 acl SSL_ports port 443
@@ -495,9 +545,7 @@ acl Safe_ports port 591         # filemaker
 acl Safe_ports port 777         # multiling http
 acl CONNECT method CONNECT
 
-# Access control
-http_access allow manager localhost
-http_access deny manager
+# Access control (simplified)
 http_access deny !Safe_ports
 http_access deny CONNECT !SSL_ports
 http_access allow localnet
@@ -515,10 +563,6 @@ coredump_dir /var/spool/squid
 maximum_object_size 512 MB
 cache_mem 256 MB
 
-# Performance tuning
-workers 2
-cpu_affinity_map process_numbers=1,2,3,4 cores=1,2,3,4
-
 # Refresh patterns (updated for 2025)
 refresh_pattern ^ftp:           1440    20%     10080
 refresh_pattern ^gopher:        1440    0%      1440
@@ -531,21 +575,26 @@ refresh_pattern .               0       20%     4320
 
 # Security headers
 reply_header_add X-Cache-Status %{HIT_MISS} "from %h"
-reply_header_add X-Cache-Control "public, max-age=3600"
 
 # Hide version and server info
-via off
-forwarded_for off
-request_header_access X-Forwarded-For deny all
-request_header_access Via deny all
-request_header_access Cache-Control deny all
+via on
+forwarded_for on
 
 # Custom hostname
 visible_hostname YT-ZIXSTYLE-VPN-2025
+
+# Disable IPv6 to avoid warnings
+dns_v4_first on
 EOF
 
-# Initialize Squid cache and start service
-log_command "squid -z"  # Initialize cache directories
+# Initialize Squid cache and start service (with proper error handling)
+# First, stop squid if it's running to avoid conflicts
+systemctl stop squid 2>/dev/null || true
+if log_command "squid -z"; then  # Initialize cache directories
+    log_and_show "✅ Squid cache directories initialized"
+else
+    log_and_show "⚠️ Squid cache initialization failed, but continuing..."
+fi
 log_command "systemctl restart squid"
 log_command "systemctl enable squid"
 
@@ -720,13 +769,13 @@ log_command "apt autoremove -y"
 # Set ownership
 log_command "chown -R www-data:www-data /home/vps/public_html"
 
-# Final service restart sequence (matching ssh-vpn.sh exactly)
+# Final service restart sequence (use systemctl instead of init.d)
 sleep 1
 log_and_show "🔄 Restart All service SSH & OVPN"
-log_command "/etc/init.d/nginx restart"
+log_command "systemctl restart nginx" || log_and_show "⚠️ nginx restart failed"
 sleep 1
 log_and_show "✅ Restarting nginx"
-log_command "/etc/init.d/openvpn restart"
+log_command "systemctl restart openvpn" || log_and_show "⚠️ openvpn restart failed"
 sleep 1
 log_and_show "✅ Restarting cron"
 log_command "/etc/init.d/ssh restart"
@@ -740,10 +789,10 @@ sleep 1
 log_and_show "✅ Restarting fail2ban"
 # stunnel4 already restarted above, skip duplicate restart
 log_and_show "✅ stunnel4 already restarted"
-log_command "/etc/init.d/vnstat restart"
+log_command "systemctl restart vnstat" || log_and_show "⚠️ vnstat restart failed"
 sleep 1
 log_and_show "✅ Restarting vnstat"
-log_command "/etc/init.d/squid restart"
+log_command "systemctl restart squid" || log_and_show "⚠️ squid restart failed"
 sleep 1
 log_and_show "✅ Restarting squid"
 

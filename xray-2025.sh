@@ -46,7 +46,15 @@ log_and_show "📦 Installing Xray-core v${XRAY_VERSION} with XHTTP and REALITY 
 log_and_show "📦 Installing Xray dependencies..."
 log_command "apt install -y iptables iptables-persistent"
 log_command "apt install -y curl socat xz-utils wget apt-transport-https gnupg gnupg2 gnupg1 dnsutils lsb-release"
-log_command "apt install -y socat cron bash-completion ntpdate zip pwgen openssl netcat"
+if ! log_command "apt install -y socat cron bash-completion ntpdate zip pwgen openssl netcat-openbsd"; then
+    log_and_show "⚠️ Some packages failed to install, trying individually..."
+    # Install packages individually if batch install fails
+    for pkg in socat cron bash-completion ntpdate zip pwgen openssl netcat-openbsd; do
+        if ! apt install -y "$pkg" 2>/dev/null; then
+            log_and_show "⚠️ Failed to install package: $pkg"
+        fi
+    done
+fi
 
 # Configure time and timezone (from ins-xray.sh) with error handling
 log_and_show "🕒 Configuring time and timezone..."
@@ -244,26 +252,54 @@ EOF
                         fi
                     else
                         log_and_show "❌ Xray binary not found in archive"
+                        # Try to extract any executable file in the archive
+                        XRAY_BINARY=$(unzip -l /tmp/xray.zip | grep -E "xray|Xray" | head -n1 | awk '{print $NF}' || echo "")
+                        if [[ -n "$XRAY_BINARY" ]]; then
+                            log_and_show "🔄 Found alternative binary: $XRAY_BINARY"
+                            if unzip -j /tmp/xray.zip "$XRAY_BINARY" -d /tmp/xray/ 2>/dev/null; then
+                                mv "/tmp/xray/$XRAY_BINARY" /tmp/xray/xray 2>/dev/null
+                                chmod +x /tmp/xray/xray
+                                if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
+                                    log_and_show "✅ Alternative Xray binary installed"
+                                    XRAY_INSTALLED=true
+                                fi
+                            fi
+                        fi
                     fi
                 else
                     log_and_show "❌ Failed to extract Xray archive"
+                    # Try alternative extraction methods
+                    if command -v 7z >/dev/null 2>&1; then
+                        log_and_show "🔄 Trying 7zip extraction..."
+                        if 7z x /tmp/xray.zip -o/tmp/xray/ -y >/dev/null 2>&1; then
+                            if [ -f /tmp/xray/xray ]; then
+                                if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
+                                    log_and_show "✅ Xray extracted with 7zip"
+                                    XRAY_INSTALLED=true
+                                fi
+                            fi
+                        fi
+                    fi
                 fi
             else
                 log_and_show "❌ unzip command not found, installing..."
-                apt update && apt install -y unzip
-                if command -v unzip >/dev/null 2>&1; then
-                    # Retry extraction after installing unzip
-                    rm -rf /tmp/xray/ 2>/dev/null
-                    mkdir -p /tmp/xray/
-                    if unzip -q /tmp/xray.zip -d /tmp/xray/ 2>/dev/null && [ -f /tmp/xray/xray ]; then
-                        mkdir -p /usr/local/bin /etc/xray /var/log/xray
-                        if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
-                            log_and_show "✅ Xray binary installed after unzip installation"
-                            XRAY_INSTALLED=true
-                            chown www-data:www-data /usr/local/bin/xray 2>/dev/null || true
-                            ln -sf /usr/local/bin/xray /usr/bin/xray 2>/dev/null || true
+                if log_command "apt update && apt install -y unzip p7zip-full"; then
+                    if command -v unzip >/dev/null 2>&1; then
+                        # Retry extraction after installing unzip
+                        rm -rf /tmp/xray/ 2>/dev/null
+                        mkdir -p /tmp/xray/
+                        if unzip -q /tmp/xray.zip -d /tmp/xray/ 2>/dev/null && [ -f /tmp/xray/xray ]; then
+                            mkdir -p /usr/local/bin /etc/xray /var/log/xray
+                            if cp /tmp/xray/xray /usr/local/bin/ && chmod +x /usr/local/bin/xray; then
+                                log_and_show "✅ Xray binary installed after unzip installation"
+                                XRAY_INSTALLED=true
+                                chown www-data:www-data /usr/local/bin/xray 2>/dev/null || true
+                                ln -sf /usr/local/bin/xray /usr/bin/xray 2>/dev/null || true
+                            fi
                         fi
                     fi
+                else
+                    log_and_show "❌ Failed to install required extraction tools"
                 fi
             fi
         else
@@ -274,17 +310,6 @@ EOF
         rm -rf /tmp/xray* 2>/dev/null
     else
         log_and_show "❌ Failed to download Xray from all URLs"
-    fi
-fi
-                log_and_show "❌ Failed to extract Xray archive"
-            fi
-        else
-            log_and_show "❌ unzip command not found"
-        fi
-        # Cleanup
-        rm -rf /tmp/xray* 2>/dev/null
-    else
-        log_and_show "❌ Failed to download Xray binary"
     fi
 fi
 
@@ -363,13 +388,13 @@ if [[ -f /root/.acme.sh/acme.sh ]]; then
     fi
 fi
 
-# Create SSL renewal script
+# Create SSL renewal script (use systemctl instead of init.d)
 cat > /usr/local/bin/ssl_renew.sh << 'EOF'
 #!/bin/bash
-/etc/init.d/nginx stop
+systemctl stop nginx
 "/root/.acme.sh"/acme.sh --cron --home "/root/.acme.sh" &> /root/renew_ssl.log
-/etc/init.d/nginx start
-/etc/init.d/nginx status
+systemctl start nginx
+systemctl status nginx
 EOF
 
 log_command "chmod +x /usr/local/bin/ssl_renew.sh"

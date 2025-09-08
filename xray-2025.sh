@@ -442,9 +442,9 @@ VLESS_PATH="${CUSTOM_VLESS_PATH:-$(generate_random_path "vl")}"
 TROJAN_PATH="${CUSTOM_TROJAN_PATH:-$(generate_random_path "tr")}"
 TROJANGO_PATH="${CUSTOM_TROJANGO_PATH:-$(generate_random_path "trgo")}"
 
-# XHTTP paths (can be same as WS or different)
-VMESS_XHTTP_PATH="${CUSTOM_VMESS_XHTTP_PATH:-$VMESS_PATH}"
-VLESS_XHTTP_PATH="${CUSTOM_VLESS_XHTTP_PATH:-$VLESS_PATH}"
+# XHTTP paths (must be different from WS paths to avoid nginx duplicate location error)
+VMESS_XHTTP_PATH="${CUSTOM_VMESS_XHTTP_PATH:-$(generate_random_path "vmx")}"
+VLESS_XHTTP_PATH="${CUSTOM_VLESS_XHTTP_PATH:-$(generate_random_path "vlx")}"
 
 # gRPC service names (not paths)
 VMESS_GRPC_SERVICE="${CUSTOM_VMESS_GRPC:-vmess-$(openssl rand -hex 4)}"
@@ -900,6 +900,11 @@ EOF
 # Configure Nginx for Xray proxy (comprehensive from ins-xray.sh)
 log_and_show "🌐 Configuring Nginx for Xray proxy..."
 log_command "apt install -y nginx"
+
+# Remove any existing nginx configs to avoid conflicts
+log_command "rm -f /etc/nginx/conf.d/xray.conf" || true
+log_command "rm -f /etc/nginx/sites-enabled/default" || true
+log_command "rm -f /etc/nginx/sites-available/default" || true
 
 # Create comprehensive Nginx Xray configuration
 cat > /etc/nginx/conf.d/xray.conf << EOF

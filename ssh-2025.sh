@@ -318,8 +318,27 @@ else
     log_and_show "⚠️ stunnel4 enable failed"
 fi
 
-# Try to start the service with multiple methods
-if systemctl restart stunnel4 2>/dev/null; then
+# Try to start the service with multiple methods and timeout handling
+log_and_show "🔄 Attempting to start stunnel4 service..."
+
+# First, ensure stunnel4 certificate exists
+if [ ! -f /etc/stunnel/stunnel.pem ]; then
+    log_and_show "🔑 Creating stunnel4 certificate..."
+    openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
+        -subj "/C=ID/ST=Jakarta/L=Jakarta/O=ZTUNNEL/CN=stunnel" \
+        -keyout /etc/stunnel/stunnel.pem \
+        -out /etc/stunnel/stunnel.pem 2>/dev/null || true
+    chmod 600 /etc/stunnel/stunnel.pem 2>/dev/null || true
+fi
+
+# Kill any existing stunnel4 processes first
+pkill -f stunnel4 2>/dev/null || true
+sleep 2
+
+# Try direct start with timeout
+timeout 30 systemctl restart stunnel4 2>/dev/null && systemctl_success=true || systemctl_success=false
+
+if [ "$systemctl_success" = "true" ]; then
     log_and_show "✅ stunnel4 started successfully via systemctl"
     # Verify service is running
     sleep 3
@@ -329,8 +348,23 @@ if systemctl restart stunnel4 2>/dev/null; then
         log_and_show "⚠️ stunnel4 service not responding properly"
         systemctl status stunnel4 --no-pager || true
     fi
-elif command -v /etc/init.d/stunnel4 >/dev/null 2>&1 && /etc/init.d/stunnel4 restart 2>/dev/null; then
-    log_and_show "✅ stunnel4 started via init.d"
+elif command -v /etc/init.d/stunnel4 >/dev/null 2>&1; then
+    log_and_show "🔄 Trying stunnel4 via init.d..."
+    if timeout 20 /etc/init.d/stunnel4 restart 2>/dev/null; then
+        log_and_show "✅ stunnel4 started via init.d"
+    else
+        log_and_show "⚠️ stunnel4 failed to start via init.d, trying manual start..."
+        # Try manual start
+        if command -v stunnel4 >/dev/null 2>&1 && [ -f /etc/stunnel/stunnel.conf ]; then
+            nohup stunnel4 /etc/stunnel/stunnel.conf >/dev/null 2>&1 &
+            sleep 3
+            if pgrep -f stunnel4 >/dev/null; then
+                log_and_show "✅ stunnel4 started manually"
+            else
+                log_and_show "⚠️ stunnel4 manual start also failed"
+            fi
+        fi
+    fi
 else
     log_and_show "⚠️ stunnel4 restart failed, checking configuration..."
     # Show detailed error information
@@ -583,13 +617,26 @@ forwarded_for on
 # Custom hostname
 visible_hostname YT-ZIXSTYLE-VPN-2025
 
-# Disable IPv6 to avoid warnings
-dns_v4_first on
+# IPv6 disabled via sysctl, no need for obsolete dns_v4_first directive
+# dns_v4_first on  # Removed: obsolete in modern Squid versions
 EOF
 
 # Initialize Squid cache and start service (with proper error handling)
 # First, stop squid if it's running to avoid conflicts
 systemctl stop squid 2>/dev/null || true
+
+# Create required directories
+log_command "mkdir -p /var/spool/squid"
+log_command "chown proxy:proxy /var/spool/squid" || true
+
+# Test squid configuration first
+log_and_show "🔍 Testing Squid configuration..."
+if squid -k parse 2>/dev/null; then
+    log_and_show "✅ Squid configuration is valid"
+else
+    log_and_show "⚠️ Squid configuration has issues, but continuing..."
+fi
+
 if log_command "squid -z"; then  # Initialize cache directories
     log_and_show "✅ Squid cache directories initialized"
 else
@@ -789,9 +836,43 @@ sleep 1
 log_and_show "✅ Restarting fail2ban"
 # stunnel4 already restarted above, skip duplicate restart
 log_and_show "✅ stunnel4 already restarted"
-log_command "systemctl restart vnstat" || log_and_show "⚠️ vnstat restart failed"
-sleep 1
-log_and_show "✅ Restarting vnstat"
+
+# Check if vnstat service exists before restarting
+if systemctl list-unit-files | grep -q "vnstat.service"; then
+    log_command "systemctl restart vnstat" || log_and_show "⚠️ vnstat restart failed"
+    sleep 1
+    log_and_show "✅ Restarting vnstat"
+elif command -v vnstat >/dev/null 2>&1; then
+    # vnstat binary exists but no systemd service, try to create one
+    log_and_show "🔧 Creating vnstat systemd service..."
+    cat > /etc/systemd/system/vnstat.service << 'EOF'
+[Unit]
+Description=vnStat network traffic monitor
+Documentation=man:vnstatd(8) https://humdi.net/vnstat/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/vnstat.pid
+ExecStart=/usr/bin/vnstatd -d --pidfile /var/run/vnstat.pid
+ExecReload=/bin/kill -HUP $MAINPID
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/vnstat
+ProtectHome=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    log_command "systemctl daemon-reload"
+    log_command "systemctl enable vnstat"
+    log_command "systemctl start vnstat"
+    log_and_show "✅ vnstat service created and started"
+else
+    log_and_show "⚠️ vnstat not found, service restart skipped"
+fi
 log_command "systemctl restart squid" || log_and_show "⚠️ squid restart failed"
 sleep 1
 log_and_show "✅ Restarting squid"

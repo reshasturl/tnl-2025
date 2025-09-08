@@ -49,9 +49,9 @@ log_command "apt-get remove --purge exim4 -y"
 log_and_show "📦 Installing comprehensive package list..."
 log_command "apt install -y screen rsyslog iftop htop net-tools zip curl wget vim nano"
 log_command "apt install -y neofetch screenfetch lsof iptables openssl easy-rsa dnsutils"
-log_command "apt install -y bc math-calc build-essential gcc g++ automake cmake git make tmux"
+execute_with_log "apt install -y bc build-essential gcc g++ automake cmake git make tmux"
 log_command "apt install -y vnstat software-properties-common apt-transport-https ca-certificates"
-log_command "apt install -y squid3 libsqlite3-dev bzip2 gzip coreutils socat chrony"
+log_command "apt install -y squid libsqlite3-dev bzip2 gzip coreutils socat chrony"
 
 # Additional packages from original tools.sh
 log_and_show "📦 Installing additional packages from tools.sh..."
@@ -62,8 +62,8 @@ log_command "apt install -y gnupg2 lsb-release"
 # VPN Development Libraries
 log_and_show "🔧 Installing VPN development libraries..."
 log_command "apt install -y libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev"
-log_command "apt install -y libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison"
-log_command "apt install -y libnss3-tools libevent-dev xl2tpd pptpd make"
+log_command "apt install -y libcap-ng-utils libselinux1-dev libcurl4-openssl-dev flex bison"
+log_command "apt install -y libnss3-tools libevent-dev xl2tpd make"
 
 # Network utilities and monitoring
 log_and_show "🌐 Installing network utilities..."

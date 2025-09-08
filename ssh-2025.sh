@@ -329,7 +329,7 @@ log_command "iptables-restore -t < /etc/iptables.up.rules"
 log_command "netfilter-persistent save"
 log_command "netfilter-persistent reload"
 
-# Configure Squid proxy (using squid3 from tools-2025.sh)
+# Configure Squid proxy (using squid from tools-2025.sh)
 log_and_show "🌐 Configuring Squid proxy..."
 
 # Note: vnstat already installed from source in tools-2025.sh

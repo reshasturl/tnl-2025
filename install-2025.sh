@@ -2,10 +2,11 @@
 #
 # YT ZIXSTYLE VPN Server 2025 - INSTALLER ENTRY POINT
 # Created: September 7, 2025
-log_and_show "📋 Installation Summary:"
-log_and_show "   🕐 Started: ${INSTALL_START_TIME}"
-log_and_show "   🏁 Completed: $(date '+%Y-%m-%d %H:%M:%S')"
-log_and_show "   📝 Log file: ${INSTALL_LOG_PATH}"rpose: Entry point dengan comprehensive logging system
+# Purlog_and_show "   🕐 Started: $(date -d @${INSTALL_START_TIME} 2>/dev/null || echo ${INSTALL_START_TIME})"ose: Entry point dengan comprehensive logging system
+
+# Comprehensive logging system
+INSTALL_LOG_PATH="/root/yt-zixstyle-install-$(date '+%Y%m%d-%H%M%S').log"
+INSTALL_START_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
 # ===============================================================================
 
 clear

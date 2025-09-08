@@ -6,6 +6,9 @@
 # Log: Inherit dari setup-2025.sh
 # ===============================================================================
 
+# Prevent script from exiting on errors - continue processing
+set +e
+
 # Inherit logging system
 if [ -z "$INSTALL_LOG_PATH" ]; then
     echo "ERROR: Must be called from setup-2025.sh"
@@ -275,9 +278,11 @@ fi
 
 # Enable stunnel4 service but don't start it yet (start in final section)
 log_command "systemctl enable stunnel4" || log_and_show "⚠️ stunnel4 enable failed"
-        sed -i '1i pid = /var/run/stunnel4/stunnel4.pid' /etc/stunnel/stunnel.conf
-        log_and_show "✅ Added PID file configuration to stunnel4.conf"
-    fi
+
+# Ensure PID configuration is in stunnel.conf if not already present
+if ! grep -q "pid = /var/run/stunnel4/stunnel4.pid" /etc/stunnel/stunnel.conf; then
+    sed -i '1i pid = /var/run/stunnel4/stunnel4.pid' /etc/stunnel/stunnel.conf
+    log_and_show "✅ Added PID file configuration to stunnel4.conf"
 fi
 
 # Set Stunnel configuration (matching ssh-vpn.sh exactly)
@@ -324,7 +329,7 @@ log_command "chown www-data:www-data /home/vps/public_html"
 
 # Install BadVPN UDPGW (matching ssh-vpn.sh method exactly)
 log_and_show "🚀 Installing BadVPN UDPGW..."
-cd
+cd /root || cd /home/root || cd ~
 if log_command "wget -O /usr/bin/badvpn-udpgw https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/newudpgw"; then
     log_command "chmod +x /usr/bin/badvpn-udpgw"
     log_and_show "✅ BadVPN UDPGW binary installed"
@@ -332,17 +337,17 @@ else
     log_and_show "⚠️ BadVPN binary download failed, compiling from source..."
     # Fallback to source compilation
     log_command "apt install -y cmake git"
-    cd /tmp
+    cd /tmp || cd /var/tmp
     if [ ! -d "badvpn" ]; then
         log_command "git clone https://github.com/ambrop72/badvpn.git"
     fi
     cd badvpn
     log_command "mkdir -p build"
-    cd build
+    cd build || { log_and_show "⚠️ Failed to enter build directory"; return 1; }
     log_command "cmake .. -DBUILD_NOTHING_BY_DEFAULT=1 -DBUILD_UDPGW=1"
     log_command "make"
     log_command "cp udpgw/badvpn-udpgw /usr/bin/"
-    cd
+    cd /root || cd /home/root || cd ~
 fi
 
 # Setup BadVPN in rc.local using systemd service instead of screen
@@ -400,16 +405,16 @@ fi
 # Enable and start all services (matching ssh-vpn.sh style)
 log_and_show "🚀 Starting and enabling services..."
 log_command "systemctl daemon-reload"
-log_command "systemctl restart ssh"
-log_command "systemctl enable ssh"
-log_command "systemctl restart dropbear"
-log_command "systemctl enable dropbear"
-log_command "systemctl restart stunnel4"
-log_command "systemctl enable stunnel4"
-log_command "systemctl restart squid"
-log_command "systemctl enable squid"
-log_command "systemctl restart nginx"
-log_command "systemctl enable nginx"
+log_command "systemctl restart ssh" || log_and_show "⚠️ SSH restart may need manual intervention"
+log_command "systemctl enable ssh" || log_and_show "⚠️ SSH enable failed"
+log_command "systemctl restart dropbear" || log_and_show "⚠️ Dropbear restart failed"
+log_command "systemctl enable dropbear" || log_and_show "⚠️ Dropbear enable failed"
+log_command "systemctl restart stunnel4" || log_and_show "⚠️ stunnel4 restart failed"
+log_command "systemctl enable stunnel4" || log_and_show "⚠️ stunnel4 enable failed"
+log_command "systemctl restart squid" || log_and_show "⚠️ Squid restart failed"
+log_command "systemctl enable squid" || log_and_show "⚠️ Squid enable failed"
+# Skip nginx restart here as it will be installed in sshws-2025.sh
+log_and_show "⚠️ Nginx will be configured in WebSocket installation step"
 
 # Install BBR kernel optimization (using ssh-vpn.sh compatible URL)
 log_and_show "⚡ Installing BBR kernel optimization..."
@@ -613,88 +618,68 @@ fi
 log_and_show "👥 Installing SSH account management scripts to /usr/bin..."
 cd /usr/bin
 
-# SSH account management (matching ssh-vpn.sh exactly)
-log_command "wget -O usernew https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/usernew.sh"
-log_command "wget -O trial https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/trial.sh"
-log_command "wget -O renew https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/renew.sh"
-log_command "wget -O hapus https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/hapus.sh"
-log_command "wget -O cek https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/cek.sh"
-log_command "wget -O member https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/member.sh"
-log_command "wget -O delete https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/delete.sh"
-log_command "wget -O autokill https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/autokill.sh"
-log_command "wget -O ceklim https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/ceklim.sh"
-log_command "wget -O tendang https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/tendang.sh"
+# SSH account management (matching ssh-vpn.sh exactly) - with enhanced error handling
+log_and_show "📥 Downloading SSH management scripts..."
+log_command "wget --timeout=30 -O usernew https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/usernew.sh" || log_and_show "⚠️ Failed to download usernew.sh"
+log_command "wget --timeout=30 -O trial https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/trial.sh" || log_and_show "⚠️ Failed to download trial.sh"
+log_command "wget --timeout=30 -O renew https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/renew.sh" || log_and_show "⚠️ Failed to download renew.sh"
+log_command "wget --timeout=30 -O hapus https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/hapus.sh" || log_and_show "⚠️ Failed to download hapus.sh"
+log_command "wget --timeout=30 -O cek https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/cek.sh" || log_and_show "⚠️ Failed to download cek.sh"
+log_command "wget --timeout=30 -O member https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/member.sh" || log_and_show "⚠️ Failed to download member.sh"
+log_command "wget --timeout=30 -O delete https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/delete.sh" || log_and_show "⚠️ Failed to download delete.sh"
+log_command "wget --timeout=30 -O autokill https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/autokill.sh" || log_and_show "⚠️ Failed to download autokill.sh"
+log_command "wget --timeout=30 -O ceklim https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/ceklim.sh" || log_and_show "⚠️ Failed to download ceklim.sh"
+log_command "wget --timeout=30 -O tendang https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/tendang.sh" || log_and_show "⚠️ Failed to download tendang.sh"
 
-# Main menu scripts (matching ssh-vpn.sh exactly)
-log_command "wget -O menu https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu.sh"
-log_command "wget -O menu-vmess https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-vmess.sh"
-log_command "wget -O menu-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-vless.sh"
-log_command "wget -O running https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/running.sh"
-log_command "wget -O clearcache https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/clearcache.sh"
-log_command "wget -O menu-trgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-trgo.sh"
-log_command "wget -O menu-trojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-trojan.sh"
+# Main menu scripts (matching ssh-vpn.sh exactly) - with enhanced error handling
+log_and_show "📋 Downloading main menu scripts..."
+log_command "wget --timeout=30 -O menu https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu.sh" || log_and_show "⚠️ Failed to download menu.sh"
+log_command "wget --timeout=30 -O menu-vmess https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-vmess.sh" || log_and_show "⚠️ Failed to download menu-vmess.sh"
+log_command "wget --timeout=30 -O menu-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-vless.sh" || log_and_show "⚠️ Failed to download menu-vless.sh"
+log_command "wget --timeout=30 -O running https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/running.sh" || log_and_show "⚠️ Failed to download running.sh"
+log_command "wget --timeout=30 -O clearcache https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/clearcache.sh" || log_and_show "⚠️ Failed to download clearcache.sh"
+log_command "wget --timeout=30 -O menu-trgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-trgo.sh" || log_and_show "⚠️ Failed to download menu-trgo.sh"
+log_command "wget --timeout=30 -O menu-trojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-trojan.sh" || log_and_show "⚠️ Failed to download menu-trojan.sh"
 
 # SSH menu
-log_command "wget -O menu-ssh https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-ssh.sh"
+log_command "wget --timeout=30 -O menu-ssh https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-ssh.sh" || log_and_show "⚠️ Failed to download menu-ssh.sh"
 
-# System menu scripts (matching ssh-vpn.sh exactly)
-log_command "wget -O menu-set https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-set.sh"
-log_command "wget -O menu-domain https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-domain.sh"
-log_command "wget -O add-host https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/add-host.sh"
-log_command "wget -O port-change https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-change.sh"
-log_command "wget -O certv2ray https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/certv2ray.sh"
-log_command "wget -O menu-webmin https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-webmin.sh"
-log_command "wget -O speedtest https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/speedtest_cli.py"
-log_command "wget -O about https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/about.sh"
-log_command "wget -O auto-reboot https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/auto-reboot.sh"
-log_command "wget -O restart https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/restart.sh"
-log_command "wget -O bw https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/bw.sh"
+# System menu scripts (matching ssh-vpn.sh exactly) - with enhanced error handling
+log_and_show "⚙️ Downloading system menu scripts..."
+log_command "wget --timeout=30 -O menu-set https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-set.sh" || log_and_show "⚠️ Failed to download menu-set.sh"
+log_command "wget --timeout=30 -O menu-domain https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-domain.sh" || log_and_show "⚠️ Failed to download menu-domain.sh"
+log_command "wget --timeout=30 -O add-host https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/add-host.sh" || log_and_show "⚠️ Failed to download add-host.sh"
+log_command "wget --timeout=30 -O port-change https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-change.sh" || log_and_show "⚠️ Failed to download port-change.sh"
+log_command "wget --timeout=30 -O certv2ray https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/certv2ray.sh" || log_and_show "⚠️ Failed to download certv2ray.sh"
+log_command "wget --timeout=30 -O menu-webmin https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/menu-webmin.sh" || log_and_show "⚠️ Failed to download menu-webmin.sh"
+log_command "wget --timeout=30 -O speedtest https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/speedtest_cli.py" || log_and_show "⚠️ Failed to download speedtest_cli.py"
+log_command "wget --timeout=30 -O about https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/about.sh" || log_and_show "⚠️ Failed to download about.sh"
+log_command "wget --timeout=30 -O auto-reboot https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/auto-reboot.sh" || log_and_show "⚠️ Failed to download auto-reboot.sh"
+log_command "wget --timeout=30 -O restart https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/restart.sh" || log_and_show "⚠️ Failed to download restart.sh"
+log_command "wget --timeout=30 -O bw https://raw.githubusercontent.com/reshasturl/tnl-2025/main/menu/bw.sh" || log_and_show "⚠️ Failed to download bw.sh"
 
-# Port management scripts (matching ssh-vpn.sh exactly)
-log_command "wget -O port-ssl https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-ssl.sh"
-log_command "wget -O port-ovpn https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-ovpn.sh"
+# Port management scripts (matching ssh-vpn.sh exactly) - with enhanced error handling
+log_and_show "🔌 Downloading port management scripts..."
+log_command "wget --timeout=30 -O port-ssl https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-ssl.sh" || log_and_show "⚠️ Failed to download port-ssl.sh"
+log_command "wget --timeout=30 -O port-ovpn https://raw.githubusercontent.com/reshasturl/tnl-2025/main/port/port-ovpn.sh" || log_and_show "⚠️ Failed to download port-ovpn.sh"
 
 # Additional system tools (matching ssh-vpn.sh exactly) - xp already downloaded
-log_command "wget -O acs-set https://raw.githubusercontent.com/reshasturl/tnl-2025/main/acs-set.sh"
-log_command "wget -O sshws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/sshws.sh"
+log_and_show "🛠️ Downloading additional system tools..."
+log_command "wget --timeout=30 -O acs-set https://raw.githubusercontent.com/reshasturl/tnl-2025/main/acs-set.sh" || log_and_show "⚠️ Failed to download acs-set.sh"
+log_command "wget --timeout=30 -O sshws https://raw.githubusercontent.com/reshasturl/tnl-2025/main/ssh/sshws.sh" || log_and_show "⚠️ Failed to download sshws.sh"
 
-# Set execute permissions for all scripts (matching ssh-vpn.sh exactly)
-log_command "chmod +x menu"
-log_command "chmod +x menu-vmess"
-log_command "chmod +x menu-vless"
-log_command "chmod +x running"
-log_command "chmod +x clearcache"
-log_command "chmod +x menu-trgo"
-log_command "chmod +x menu-trojan"
-log_command "chmod +x menu-ssh"
-log_command "chmod +x usernew"
-log_command "chmod +x trial"
-log_command "chmod +x renew"
-log_command "chmod +x hapus"
-log_command "chmod +x cek"
-log_command "chmod +x member"
-log_command "chmod +x delete"
-log_command "chmod +x autokill"
-log_command "chmod +x ceklim"
-log_command "chmod +x tendang"
-log_command "chmod +x menu-set"
-log_command "chmod +x menu-domain"
-log_command "chmod +x add-host"
-log_command "chmod +x port-change"
-log_command "chmod +x certv2ray"
-log_command "chmod +x menu-webmin"
-log_command "chmod +x speedtest"
-log_command "chmod +x about"
-log_command "chmod +x auto-reboot"
-log_command "chmod +x restart"
-log_command "chmod +x bw"
-log_command "chmod +x port-ssl"
-log_command "chmod +x port-ovpn"
-log_command "chmod +x xp"
-log_command "chmod +x acs-set"
-log_command "chmod +x sshws"
+# Set execute permissions for all scripts (matching ssh-vpn.sh exactly) - with enhanced error handling
+log_and_show "🔑 Setting execute permissions for management scripts..."
+for script in menu menu-vmess menu-vless running clearcache menu-trgo menu-trojan menu-ssh usernew trial renew hapus cek member delete autokill ceklim tendang menu-set menu-domain add-host port-change certv2ray menu-webmin speedtest about auto-reboot restart bw port-ssl port-ovpn xp acs-set sshws; do
+    if [ -f "$script" ]; then
+        chmod +x "$script" 2>/dev/null || log_and_show "⚠️ Failed to set permission for $script"
+    else
+        log_and_show "⚠️ Script $script not found, skipping permission setting"
+    fi
+done
+log_and_show "✅ Execute permissions configured for available scripts"
 
-cd
+cd /root || cd /home/root || cd ~
 
 # Setup cron jobs (matching ssh-vpn.sh exactly)
 log_and_show "⏰ Setting up system cron jobs..."
@@ -795,3 +780,6 @@ log_section "SSH-2025.SH COMPLETED"
 
 # finishing
 clear
+
+# Ensure script exits successfully
+exit 0

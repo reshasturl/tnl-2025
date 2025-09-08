@@ -48,25 +48,20 @@ log_command "apt dist-upgrade -y"
 log_command "apt-get remove --purge ufw firewalld -y"
 log_command "apt-get remove --purge exim4 -y"
 
-# Install comprehensive package list (based on tools.sh)
+# Install comprehensive package list (based on tools.sh - updated for Ubuntu 24.04)
 log_and_show "📦 Installing comprehensive package list..."
-log_command "apt install -y screen rsyslog iftop htop net-tools zip curl wget vim nano"
-log_command "apt install -y neofetch screenfetch lsof iptables openssl easy-rsa dnsutils"
-execute_with_log "apt install -y bc build-essential gcc g++ automake cmake git make tmux"
-log_command "apt install -y vnstat software-properties-common apt-transport-https ca-certificates"
-log_command "apt install -y squid libsqlite3-dev bzip2 gzip coreutils socat chrony"
+log_command "apt install -y screen curl jq bzip2 gzip coreutils rsyslog iftop \
+ htop zip unzip net-tools sed gnupg gnupg1 \
+ bc apt-transport-https build-essential dirmngr libxml-parser-perl neofetch screenfetch git lsof \
+ openssl openvpn easy-rsa fail2ban tmux \
+ stunnel4 vnstat squid \
+ dropbear libsqlite3-dev \
+ socat cron bash-completion ntpdate xz-utils \
+ gnupg2 dnsutils lsb-release chrony"
 
-# Additional packages from original tools.sh
-log_and_show "📦 Installing additional packages from tools.sh..."
-log_command "apt install -y jq unzip sed gnupg gnupg1 dirmngr libxml-parser-perl"
-log_command "apt install -y openvpn stunnel4 dropbear cron bash-completion ntpdate xz-utils"
-log_command "apt install -y gnupg2 lsb-release"
-
-# VPN Development Libraries
+# VPN Development Libraries (updated for Ubuntu 24.04 - removed pptpd, fixed libcurl4)
 log_and_show "🔧 Installing VPN development libraries..."
-log_command "apt install -y libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev"
-log_command "apt install -y libcap-ng-utils libselinux1-dev libcurl4-openssl-dev flex bison"
-log_command "apt install -y libnss3-tools libevent-dev xl2tpd make"
+log_command "apt install -y libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev libcap-ng-utils libselinux1-dev libcurl4-openssl-dev flex bison make libnss3-tools libevent-dev xl2tpd"
 
 # Network utilities and monitoring
 log_and_show "🌐 Installing network utilities..."
@@ -93,11 +88,10 @@ log_command "wget -q https://humdi.net/vnstat/vnstat-2.9.tar.gz"
 if [[ -f vnstat-2.9.tar.gz ]]; then
     log_command "tar zxvf vnstat-2.9.tar.gz"
     cd vnstat-2.9
-    log_command "./configure --prefix=/usr --sysconfdir=/etc"
-    log_command "make && make install"
+    log_command "./configure --prefix=/usr --sysconfdir=/etc >/dev/null 2>&1 && make >/dev/null 2>&1 && make install >/dev/null 2>&1"
     cd /
-    log_command "rm -f /tmp/vnstat-2.9.tar.gz"
-    log_command "rm -rf /tmp/vnstat-2.9"
+    log_command "rm -f /tmp/vnstat-2.9.tar.gz >/dev/null 2>&1"
+    log_command "rm -rf /tmp/vnstat-2.9 >/dev/null 2>&1"
     log_and_show "✅ vnstat 2.9 installed from source"
 fi
 

@@ -1135,7 +1135,63 @@ EOF
 
 # Start nginx service
 log_and_show "🌐 Starting nginx service..."
-log_command "systemctl restart nginx"
+# Test nginx configuration first
+log_command "nginx -t"
+if [ $? -eq 0 ]; then
+    log_command "systemctl restart nginx"
+else
+    log_and_show "⚠️ Nginx configuration test failed, removing SSL config temporarily..."
+    # Create temporary nginx config without SSL for now
+    cat > /etc/nginx/conf.d/xray.conf << EOF
+server {
+    listen 80;
+    listen [::]:80;
+    listen 8880;
+    listen [::]:8880;
+    listen 55;
+    listen [::]:55;
+    listen 8080;
+    listen [::]:8080;
+    server_name _;
+    
+    root /home/vps/public_html;
+    
+    location = ${VLESS_PATH} {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:14016;
+        proxy_http_version 1.1;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$http_host;
+    }
+    
+    location = ${VMESS_PATH} {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:30300;
+        proxy_http_version 1.1;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$http_host;
+    }
+    
+    location = ${TROJAN_PATH} {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:25432;
+        proxy_http_version 1.1;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$http_host;
+    }
+}
+EOF
+    log_command "systemctl restart nginx"
+fi
 log_command "systemctl enable nginx"
 
 # Start and enable services

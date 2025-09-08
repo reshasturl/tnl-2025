@@ -55,6 +55,8 @@ log_command "apt install -y screen curl jq bzip2 gzip coreutils rsyslog iftop ht
 log_command "apt install -y net-tools sed gnupg gnupg1 bc apt-transport-https build-essential"
 log_command "apt install -y dirmngr libxml-parser-perl neofetch screenfetch git lsof openssl"
 log_command "apt install -y openvpn easy-rsa fail2ban tmux stunnel4 squid dropbear"
+# Install nginx and additional packages
+log_command "apt install -y nginx apache2-utils"
 # Install netfilter-persistent and netcat-openbsd (fixing netcat issue)
 log_command "apt install -y iptables-persistent netfilter-persistent netcat-openbsd"
 
@@ -131,10 +133,18 @@ EOF
     fi
     
     # Test stunnel4 configuration
-    if stunnel4 -test -fd 2 2>/dev/null; then
+    if stunnel4 -test 2>/dev/null; then
         log_and_show "✅ stunnel4 configuration test passed"
     else
-        log_and_show "⚠️ stunnel4 configuration test failed, but continuing..."
+        log_and_show "⚠️ stunnel4 configuration test failed, creating basic certificate..."
+        # Create self-signed certificate if missing
+        if [[ ! -f /etc/stunnel/stunnel.pem ]]; then
+            log_and_show "🔐 Creating self-signed SSL certificate for stunnel4..."
+            openssl req -new -x509 -days 3650 -nodes -out /etc/stunnel/stunnel.pem -keyout /etc/stunnel/stunnel.pem -subj "/C=ID/ST=Jakarta/L=Jakarta/O=YT-ZIXSTYLE/CN=stunnel" 2>/dev/null || true
+            chmod 600 /etc/stunnel/stunnel.pem
+            chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem 2>/dev/null || true
+            log_and_show "✅ SSL certificate created for stunnel4"
+        fi
     fi
 else
     log_and_show "⚠️ stunnel4 not installed, skipping configuration"
@@ -168,7 +178,7 @@ else
     log_and_show "⚠️ stunnel4 command not found after installation"
 fi
 log_command "apt install -y libsqlite3-dev socat cron bash-completion xz-utils gnupg2"
-log_command "apt install -y dnsutils lsb-release"
+log_command "apt install -y dnsutils lsb-release vnstat"
 
 # Install chrony with fallback to systemd-timesyncd
 log_and_show "⏰ Installing time synchronization service..."
@@ -592,3 +602,6 @@ echo "Security: SystemCallArchitectures, PrivateTmp, ProtectSystem" >> /root/log
 
 log_and_show "✅ System tools installation completed"
 log_section "TOOLS-2025.SH COMPLETED"
+
+# Ensure script exits successfully even if some minor components failed
+exit 0

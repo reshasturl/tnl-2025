@@ -3,18 +3,7 @@
 # YT ZIXSTYLE VPN Server 2025 - MAIN SETUP CONNECTOR
 # Created: September 7, 2025  
 # Purpose: Penghubung untuk download dan eksekusi script-script terpisah
-# Log: Inherit dari install-2025.sh dan teruskan    log_and_show "🔧 Executing sshws-2025.sh..."
-    if ./sshws-2025.sh; then
-        log_and_show "✅ SSH WebSocket installation completed successfully"
-        SSHWS_STATUS="✅ SSH WebSocket tunneling installed"
-    else
-        log_and_show "❌ SSH WebSocket installation failed - continuing with basic setup"
-        SSHWS_STATUS="⚠️  SSH WebSocket installation failed (can be retried manually)"
-    fi
-else
-    log_and_show "❌ Failed to download sshws-2025.sh - continuing with basic setup"
-    SSHWS_STATUS="⚠️  SSH WebSocket download failed (can be retried manually)"
-fihild scripts
+# Log: Inherit dari install-2025.sh dan teruskan ke semua child scripts
 # ===============================================================================
 
 # Inherit logging system dari install-2025.sh
@@ -34,12 +23,6 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 NC='\033[0m'
-
-# Installation status variables
-TOOLS_STATUS=""
-SSH_STATUS=""
-SSHWS_STATUS=""
-XRAY_STATUS=""
 
 # Header display
 echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
@@ -197,14 +180,13 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     log_and_show "🔧 Executing tools-2025.sh..."
     if ./tools-2025.sh; then
         log_and_show "✅ Tools installation completed successfully"
-        TOOLS_STATUS="✅ System tools installed"
     else
-        log_and_show "❌ Tools installation failed - this may cause issues with other components"
-        TOOLS_STATUS="⚠️  Tools installation failed (critical for other components)"
+        log_and_show "❌ Tools installation failed"
+        exit 1
     fi
 else
-    log_and_show "❌ Failed to download tools-2025.sh - this may cause issues with other components"
-    TOOLS_STATUS="⚠️  Tools download failed (critical for other components)"
+    log_and_show "❌ Failed to download tools-2025.sh"
+    exit 1
 fi
 
 # 2. SSH/VPN INSTALLATION  
@@ -218,14 +200,13 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     log_and_show "🔧 Executing ssh-2025.sh..."
     if ./ssh-2025.sh; then
         log_and_show "✅ SSH/VPN installation completed successfully"
-        SSH_STATUS="✅ SSH/OpenVPN services configured"
     else
-        log_and_show "❌ SSH/VPN installation failed - continuing with other components"
-        SSH_STATUS="⚠️  SSH/VPN installation failed (can be retried manually)"
+        log_and_show "❌ SSH/VPN installation failed"
+        exit 1
     fi
 else
-    log_and_show "❌ Failed to download ssh-2025.sh - continuing with other components"
-    SSH_STATUS="⚠️  SSH/VPN download failed (can be retried manually)"
+    log_and_show "❌ Failed to download ssh-2025.sh"
+    exit 1
 fi
 
 # 3. WEBSOCKET INSTALLATION
@@ -238,15 +219,14 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     
     log_and_show "🔧 Executing sshws-2025.sh..."
     if ./sshws-2025.sh; then
-        log_and_show "✅ SSH WebSocket installation completed successfully"
-        SSHWS_STATUS="✅ SSH WebSocket tunneling installed"
+        log_and_show "✅ WebSocket installation completed successfully"
     else
-        log_and_show "❌ SSH WebSocket installation failed - continuing with basic setup"
-        SSHWS_STATUS="⚠️  SSH WebSocket installation failed (can be retried manually)"
+        log_and_show "❌ WebSocket installation failed"
+        exit 1
     fi
 else
-    log_and_show "❌ Failed to download sshws-2025.sh - continuing with basic setup"
-    SSHWS_STATUS="⚠️  SSH WebSocket download failed (can be retried manually)"
+    log_and_show "❌ Failed to download sshws-2025.sh"
+    exit 1
 fi
 
 # 4. XRAY INSTALLATION
@@ -260,19 +240,18 @@ if log_command "wget -q https://raw.githubusercontent.com/reshasturl/tnl-2025/ma
     log_and_show "🔧 Executing xray-2025.sh..."
     if ./xray-2025.sh; then
         log_and_show "✅ Xray installation completed successfully"
-        XRAY_STATUS="✅ Xray with modern protocols installed"
     else
-        log_and_show "❌ Xray installation failed - continuing with basic setup"
-        XRAY_STATUS="⚠️  Xray installation failed (can be retried manually)"
+        log_and_show "❌ Xray installation failed"
+        exit 1
     fi
 else
-    log_and_show "❌ Failed to download xray-2025.sh - continuing with basic setup"
-    XRAY_STATUS="⚠️  Xray download failed (can be retried manually)"
+    log_and_show "❌ Failed to download xray-2025.sh"
+    exit 1
 fi
 
 # Installation completion
 log_section "INSTALLATION COMPLETED"
-log_and_show "🎉 YT ZIXSTYLE VPN Server 2025 installation process completed!"
+log_and_show "🎉 YT ZIXSTYLE VPN Server 2025 installation completed successfully!"
 log_and_show "📝 Installation log: ${INSTALL_LOG_PATH}"
 log_and_show "📋 Service tracking: /root/log-install.txt"
 log_and_show "🌐 Domain configured: $DOMAIN"
@@ -281,33 +260,12 @@ log_and_show "🕐 Installation completed at: $(date)"
 # Final system info
 log_and_show ""
 log_and_show "📊 INSTALLATION SUMMARY:"
-log_and_show "   ${TOOLS_STATUS:-⚠️  Tools status unknown}"
-log_and_show "   ${SSH_STATUS:-⚠️  SSH/VPN status unknown}"  
-log_and_show "   ${SSHWS_STATUS:-⚠️  SSH WebSocket status unknown}"
-log_and_show "   ${XRAY_STATUS:-⚠️  Xray status unknown}"
+log_and_show "   ✅ System tools installed"
+log_and_show "   ✅ SSH/OpenVPN services configured"  
+log_and_show "   ✅ WebSocket tunneling enabled"
+log_and_show "   ✅ Xray with modern protocols installed"
 log_and_show ""
-
-# Show any warnings or failed components
-if [[ "$TOOLS_STATUS" == *"failed"* ]] || [[ "$SSH_STATUS" == *"failed"* ]] || [[ "$SSHWS_STATUS" == *"failed"* ]] || [[ "$XRAY_STATUS" == *"failed"* ]]; then
-    log_and_show "⚠️  Some components failed - you can retry installation manually:"
-    [[ "$TOOLS_STATUS" == *"failed"* ]] && log_and_show "   • Run './tools-2025.sh' to install system tools"
-    [[ "$SSH_STATUS" == *"failed"* ]] && log_and_show "   • Run './ssh-2025.sh' to install SSH/OpenVPN"
-    [[ "$SSHWS_STATUS" == *"failed"* ]] && log_and_show "   • Run './sshws-2025.sh' to install SSH WebSocket"
-    [[ "$XRAY_STATUS" == *"failed"* ]] && log_and_show "   • Run './xray-2025.sh' to install Xray protocols"
-    log_and_show ""
-fi
-
-log_and_show "🚀 Server setup completed! Type 'menu' to access VPN management."
-log_and_show ""
-log_and_show "Do you want to reboot server now? (y/n): "
-read -p "" REBOOT_CHOICE
-if [[ $REBOOT_CHOICE =~ ^[Yy]$ ]]; then
-    log_and_show "🔄 Rebooting server in 3 seconds..."
-    sleep 3
-    reboot
-else
-    log_and_show "✅ Setup completed without reboot. Remember to reboot later for optimal performance."
-fi
+log_and_show "🚀 Server is ready! Type 'menu' to access VPN management."
 
 # Cleanup temporary files
 log_command "rm -f tools-2025.sh ssh-2025.sh sshws-2025.sh xray-2025.sh"

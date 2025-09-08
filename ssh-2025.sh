@@ -151,21 +151,14 @@ commonname=WarungAwan
 email=doyoulikepussy@zixstyle.co.id
 
 # Generate key and certificate files (matching ssh-vpn.sh exactly)
-cd /etc/stunnel
 openssl genrsa -out key.pem 2048
 openssl req -new -x509 -key key.pem -out cert.pem -days 1095 \
 -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
-cat key.pem cert.pem > /etc/stunnel/stunnel.pem
-chmod 600 /etc/stunnel/stunnel.pem
-chown stunnel4:stunnel4 /etc/stunnel/stunnel.pem
+cat key.pem cert.pem >> /etc/stunnel/stunnel.pem
 
 # Set Stunnel configuration (matching ssh-vpn.sh exactly)
 sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
-# Try to restart stunnel4, but don't fail if it doesn't work immediately
-if ! log_command "/etc/init.d/stunnel4 restart"; then
-    log_and_show "⚠️ stunnel4 restart failed, will retry with systemctl"
-    log_command "systemctl restart stunnel4" || log_and_show "⚠️ stunnel4 will be configured during reboot"
-fi
+log_command "/etc/init.d/stunnel4 restart"
 
 # Configure Nginx (nginx will be installed in sshws-2025.sh)
 log_and_show "🌐 Preparing Nginx configuration..."

@@ -618,9 +618,8 @@ log_and_show "✅ Restarting dropbear"
 log_command "/etc/init.d/fail2ban restart"
 sleep 1
 log_and_show "✅ Restarting fail2ban"
-log_command "/etc/init.d/stunnel4 restart"
-sleep 1
-log_and_show "✅ Restarting stunnel4"
+# stunnel4 already restarted above, skip duplicate restart
+log_and_show "✅ stunnel4 already restarted"
 log_command "/etc/init.d/vnstat restart"
 sleep 1
 log_and_show "✅ Restarting vnstat"

@@ -98,7 +98,9 @@ fi
 # Configure vnstat with enhanced security
 log_and_show "⚙️ Configuring vnstat with enhanced security..."
 # Create vnstat database with correct parameter for different versions
-if vnstat --help 2>/dev/null | grep -q "\--create"; then
+if vnstat --help 2>/dev/null | grep -q "\--add"; then
+    log_command "vnstat -i $NET --add" || log_and_show "⚠️ vnstat database may already exist"
+elif vnstat --help 2>/dev/null | grep -q "\--create"; then
     log_command "vnstat --create -i $NET" || log_and_show "⚠️ vnstat database may already exist"
 elif vnstat --help 2>/dev/null | grep -q "\-u"; then
     log_command "vnstat -u -i $NET" || log_and_show "⚠️ vnstat database may already exist"

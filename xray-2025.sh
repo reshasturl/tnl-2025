@@ -30,23 +30,15 @@ else
     log_and_show "✅ Latest version detected: v${XRAY_VERSION}"
 fi
 
-# Trojan management (Enhanced only)
-log_and_show "🔫 Installing Trojan management scripts..."
-log_command "wget -O /usr/local/bin/add-trojan-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-trojan-enhanced.sh"
-log_command "wget -O /usr/local/bin/trialtrojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojan.sh"
-log_command "wget -O /usr/local/bin/del-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-tr.sh"
-log_command "wget -O /usr/local/bin/renew-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renew-tr.sh"
-log_command "wget -O /usr/local/bin/cek-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-tr.sh"
-
-# Trojan-Go management
-log_and_show "🚀 Installing Trojan-Go management scripts..."
-log_command "wget -O /usr/local/bin/addtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/addtrgo.sh"
-log_command "wget -O /usr/local/bin/trialtrojango https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojango.sh"ed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
-if [ -z "$XRAY_VERSION" ] || [ "$XRAY_VERSION" = "null" ]; then
-    log_and_show "⚠️ Failed to detect latest version (API timeout or error), using fallback v1.8.24"
-    XRAY_VERSION="1.8.24"
-else
-    log_and_show "✅ Latest version detected: v${XRAY_VERSION}"
+# Check domain variable
+if [ -z "$DOMAIN" ]; then
+    if [ -f /root/domain ]; then
+        DOMAIN=$(cat /root/domain)
+        log_and_show "✅ Domain loaded from file: ${DOMAIN}"
+    else
+        log_and_show "⚠️ Domain not found, using IP address"
+        DOMAIN=$(curl -s ipv4.icanhazip.com)
+    fi
 fi
 log_and_show "📦 Installing Xray-core v${XRAY_VERSION} with XHTTP and REALITY protocols"
 
@@ -74,12 +66,9 @@ if ! bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-re
     log_and_show "⚠️ Official installer failed, trying alternative method..."
     # Alternative installation method
     if ! curl -L -o /tmp/xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh; then
-        log_and_show "❌ Failed to download Xray installer"
-        return 1
-    fi
-    if ! bash /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION}; then
-        log_and_show "❌ Alternative Xray installation failed"
-        return 1
+        log_and_show "❌ Failed to download Xray installer, continuing with graceful error handling..."
+    elif ! bash /tmp/xray-install.sh install -u www-data --version ${XRAY_VERSION}; then
+        log_and_show "❌ Alternative Xray installation failed, continuing with graceful error handling..."
     fi
 fi
 log_and_show "✅ Xray core installation completed"
@@ -916,20 +905,28 @@ log_command "wget -O /usr/local/bin/renew-vless https://raw.githubusercontent.co
 log_command "wget -O /usr/local/bin/del-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-vless.sh"
 log_command "wget -O /usr/local/bin/cek-vless https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-vless.sh"
 
-# Trojan management
+# Trojan management (Enhanced)
+log_and_show "🔫 Installing Trojan management scripts..."
 log_command "wget -O /usr/local/bin/add-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-tr.sh"
+log_command "wget -O /usr/local/bin/add-trojan-enhanced https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/add-trojan-enhanced.sh"
 log_command "wget -O /usr/local/bin/trialtrojan https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojan.sh"
 log_command "wget -O /usr/local/bin/renew-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renew-tr.sh"
 log_command "wget -O /usr/local/bin/del-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/del-tr.sh"
 log_command "wget -O /usr/local/bin/cek-tr https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cek-tr.sh"
 
 # Trojan-Go management (Advanced Trojan Protocol)
-log_and_show "🔒 Installing Trojan-Go management scripts..."
+log_and_show "🚀 Installing Trojan-Go management scripts..."
 log_command "wget -O /usr/local/bin/addtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/addtrgo.sh"
 log_command "wget -O /usr/local/bin/trialtrojango https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/trialtrojango.sh"
 log_command "wget -O /usr/local/bin/renewtrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/renewtrgo.sh"
 log_command "wget -O /usr/local/bin/deltrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/deltrgo.sh"
 log_command "wget -O /usr/local/bin/cektrgo https://raw.githubusercontent.com/reshasturl/tnl-2025/main/xray/cektrgo.sh"
+
+# Trojan management
+# Already downloaded above, skipping duplicate downloads
+
+# Trojan-Go management (Advanced Trojan Protocol)  
+# Already downloaded above, skipping duplicate downloads
 
 # Additional modern protocol management
 log_and_show "⚡ Installing additional modern protocol utilities..."
